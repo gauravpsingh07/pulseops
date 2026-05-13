@@ -1,7 +1,9 @@
 import { handleAuthRoute } from "./routes/auth";
 import { handleCheckRoute } from "./routes/checks";
+import { handleCronRoute } from "./routes/cron";
 import { handleIncidentRoute } from "./routes/incidents";
 import { handleMonitorRoute } from "./routes/monitors";
+import { runScheduledChecks } from "./services/monitorRunner";
 import type { Env } from "./types/env";
 import { errorResponse, successResponse } from "./utils/response";
 
@@ -31,6 +33,12 @@ async function fetchHandler(request: Request, env: Env): Promise<Response> {
 
     if (request.method === "GET" && url.pathname === "/api/db-test") {
       return handleDbTest(env);
+    }
+
+    const cronResponse = await handleCronRoute(request, env, url.pathname);
+
+    if (cronResponse) {
+      return cronResponse;
     }
 
     const authResponse = await handleAuthRoute(request, env, url.pathname);
@@ -67,10 +75,18 @@ async function fetchHandler(request: Request, env: Env): Promise<Response> {
 
 export async function scheduled(
   _event: ScheduledController,
-  _env: Env,
-  _ctx: ExecutionContext
+  env: Env,
+  ctx: ExecutionContext
 ): Promise<void> {
-  console.log("Scheduled checks are not implemented yet.");
+  ctx.waitUntil(
+    runScheduledChecks(env)
+      .then((summary) => {
+        console.log("Scheduled monitor checks completed", summary);
+      })
+      .catch((error) => {
+        console.error("Scheduled monitor checks failed", error);
+      })
+  );
 }
 
 export default {

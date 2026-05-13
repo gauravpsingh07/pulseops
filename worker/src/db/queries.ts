@@ -26,6 +26,10 @@ export type Monitor = Omit<MonitorRow, "is_active" | "is_public"> & {
   is_public: boolean;
 };
 
+export type ScheduledMonitor = Monitor & {
+  last_checked_at: string | null;
+};
+
 export type CheckRow = {
   id: string;
   monitor_id: string;
@@ -64,6 +68,13 @@ function toMonitor(row: MonitorRow): Monitor {
     ...row,
     is_active: row.is_active === 1,
     is_public: row.is_public === 1
+  };
+}
+
+function toScheduledMonitor(row: MonitorRow & { last_checked_at: string | null }): ScheduledMonitor {
+  return {
+    ...toMonitor(row),
+    last_checked_at: row.last_checked_at
   };
 }
 
@@ -128,6 +139,33 @@ export async function getRecentChecksByMonitor(
     .all<CheckRow>();
 
   return result.results;
+}
+
+export async function listActiveMonitorsForScheduling(env: Env): Promise<ScheduledMonitor[]> {
+  const result = await env.DB.prepare(
+    `SELECT monitors.*,
+            (
+              SELECT MAX(checks.checked_at)
+              FROM checks
+              WHERE checks.monitor_id = monitors.id
+            ) AS last_checked_at
+     FROM monitors
+     WHERE monitors.is_active = 1
+     ORDER BY monitors.created_at ASC`
+  ).all<MonitorRow & { last_checked_at: string | null }>();
+
+  return result.results.map(toScheduledMonitor);
+}
+
+export async function deleteChecksOlderThan(env: Env, retentionDays: number): Promise<number> {
+  const result = await env.DB.prepare(
+    `DELETE FROM checks
+     WHERE checked_at < datetime('now', ?)`
+  )
+    .bind(`-${retentionDays} days`)
+    .run();
+
+  return result.meta.changes ?? 0;
 }
 
 export async function getOpenIncidentByMonitor(

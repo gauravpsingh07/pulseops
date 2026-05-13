@@ -1,5 +1,10 @@
-import type { IncidentRow, Monitor } from "../db/queries";
-import { getActiveMonitorByIdForUser, type CheckRow } from "../db/queries";
+import type { IncidentRow, Monitor, ScheduledMonitor } from "../db/queries";
+import {
+  deleteChecksOlderThan,
+  getActiveMonitorByIdForUser,
+  listActiveMonitorsForScheduling,
+  type CheckRow
+} from "../db/queries";
 import type { Env } from "../types/env";
 import { createId } from "../utils/ids";
 import { elapsedMs, nowTimestampMs } from "../utils/time";
@@ -16,12 +21,41 @@ export type MonitorCheckResult = {
   incident_resolved: boolean;
 };
 
+export type ScheduledChecksSummary = {
+  checked: number;
+  skipped: number;
+  failed: number;
+  cleanupDeleted: number;
+};
+
 type RawCheckResult = {
   status: "success" | "failure";
   status_code: number | null;
   response_time_ms: number | null;
   error_message: string | null;
 };
+
+const CHECK_RETENTION_DAYS = 30;
+
+function parseSqliteTimestamp(timestamp: string): number {
+  const parsed = Date.parse(`${timestamp.replace(" ", "T")}Z`);
+
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function isMonitorDue(monitor: ScheduledMonitor, nowMs: number): boolean {
+  if (!monitor.last_checked_at) {
+    return true;
+  }
+
+  const lastCheckedAtMs = parseSqliteTimestamp(monitor.last_checked_at);
+
+  if (lastCheckedAtMs === 0) {
+    return true;
+  }
+
+  return nowMs - lastCheckedAtMs >= monitor.interval_minutes * 60 * 1000;
+}
 
 function getFetchErrorMessage(error: unknown, timeoutMs: number): string {
   if (error instanceof DOMException && error.name === "AbortError") {
@@ -177,4 +211,44 @@ export async function runMonitorCheck(env: Env, monitor: Monitor): Promise<Monit
     incident_created: incidentTransition.created,
     incident_resolved: incidentTransition.resolved
   };
+}
+
+export async function runScheduledChecks(env: Env): Promise<ScheduledChecksSummary> {
+  const summary: ScheduledChecksSummary = {
+    checked: 0,
+    skipped: 0,
+    failed: 0,
+    cleanupDeleted: 0
+  };
+  const nowMs = Date.now();
+
+  try {
+    summary.cleanupDeleted = await deleteChecksOlderThan(env, CHECK_RETENTION_DAYS);
+  } catch (error) {
+    console.error("Scheduled check retention cleanup failed", error);
+  }
+
+  const monitors = await listActiveMonitorsForScheduling(env);
+
+  for (const monitor of monitors) {
+    if (!isMonitorDue(monitor, nowMs)) {
+      summary.skipped += 1;
+      continue;
+    }
+
+    summary.checked += 1;
+
+    try {
+      const result = await runMonitorCheck(env, monitor);
+
+      if (result.check.status === "failure") {
+        summary.failed += 1;
+      }
+    } catch (error) {
+      summary.failed += 1;
+      console.error(`Scheduled check failed for monitor ${monitor.id}`, error);
+    }
+  }
+
+  return summary;
 }
