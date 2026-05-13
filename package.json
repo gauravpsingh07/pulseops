@@ -1,0 +1,14 @@
+{
+  "name": "pulseops",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "corepack pnpm dev:worker",
+    "dev:worker": "corepack pnpm --filter worker dev",
+    "build": "corepack pnpm --filter worker build",
+    "test": "corepack pnpm --filter worker test",
+    "lint": "corepack pnpm --filter worker lint",
+    "typecheck": "corepack pnpm --filter worker typecheck"
+  }
+}
