@@ -61,7 +61,10 @@ async function handleRunCheck(request: Request, env: Env, monitorId: string): Pr
   return successResponse({
     check: result.check,
     monitor_status: result.monitor.status,
-    monitor: result.monitor
+    monitor: result.monitor,
+    incident: result.incident,
+    incident_created: result.incident_created,
+    incident_resolved: result.incident_resolved
   });
 }
 

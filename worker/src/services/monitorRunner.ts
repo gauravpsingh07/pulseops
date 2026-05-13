@@ -1,12 +1,19 @@
-import type { Monitor } from "../db/queries";
+import type { IncidentRow, Monitor } from "../db/queries";
 import { getActiveMonitorByIdForUser, type CheckRow } from "../db/queries";
 import type { Env } from "../types/env";
 import { createId } from "../utils/ids";
 import { elapsedMs, nowTimestampMs } from "../utils/time";
+import {
+  handleFailedCheckIncident,
+  handleSuccessfulCheckRecovery
+} from "./incidentService";
 
 export type MonitorCheckResult = {
   check: CheckRow;
   monitor: Monitor;
+  incident: IncidentRow | null;
+  incident_created: boolean;
+  incident_resolved: boolean;
 };
 
 type RawCheckResult = {
@@ -158,9 +165,16 @@ export async function runMonitorCheck(env: Env, monitor: Monitor): Promise<Monit
   const result = await executeFetchCheck(monitor);
   const check = await insertCheck(env, monitor.id, result);
   const updatedMonitor = await updateMonitorAfterCheck(env, monitor, result.status);
+  const incidentTransition =
+    result.status === "success"
+      ? await handleSuccessfulCheckRecovery(env, updatedMonitor)
+      : await handleFailedCheckIncident(env, updatedMonitor, check);
 
   return {
     check,
-    monitor: updatedMonitor
+    monitor: updatedMonitor,
+    incident: incidentTransition.incident,
+    incident_created: incidentTransition.created,
+    incident_resolved: incidentTransition.resolved
   };
 }

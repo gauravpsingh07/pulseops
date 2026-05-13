@@ -36,6 +36,29 @@ export type CheckRow = {
   checked_at: string;
 };
 
+export type IncidentRow = {
+  id: string;
+  monitor_id: string;
+  title: string;
+  status: "open" | "resolved";
+  started_at: string;
+  resolved_at: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AlertLogRow = {
+  id: string;
+  monitor_id: string;
+  incident_id: string | null;
+  alert_type: string;
+  sent_to: string | null;
+  status: "sent" | "failed" | "skipped";
+  error_message: string | null;
+  sent_at: string;
+};
+
 function toMonitor(row: MonitorRow): Monitor {
   return {
     ...row,
@@ -103,6 +126,82 @@ export async function getRecentChecksByMonitor(
   )
     .bind(monitorId, limit)
     .all<CheckRow>();
+
+  return result.results;
+}
+
+export async function getOpenIncidentByMonitor(
+  env: Env,
+  monitorId: string
+): Promise<IncidentRow | null> {
+  return env.DB.prepare(
+    `SELECT id, monitor_id, title, status, started_at, resolved_at, failure_reason, created_at, updated_at
+     FROM incidents
+     WHERE monitor_id = ? AND status = 'open'
+     ORDER BY started_at DESC
+     LIMIT 1`
+  )
+    .bind(monitorId)
+    .first<IncidentRow>();
+}
+
+export async function getIncidentByIdForUser(
+  env: Env,
+  incidentId: string,
+  userId: string
+): Promise<IncidentRow | null> {
+  return env.DB.prepare(
+    `SELECT incidents.id,
+            incidents.monitor_id,
+            incidents.title,
+            incidents.status,
+            incidents.started_at,
+            incidents.resolved_at,
+            incidents.failure_reason,
+            incidents.created_at,
+            incidents.updated_at
+     FROM incidents
+     INNER JOIN monitors ON monitors.id = incidents.monitor_id
+     WHERE incidents.id = ? AND monitors.user_id = ?`
+  )
+    .bind(incidentId, userId)
+    .first<IncidentRow>();
+}
+
+export async function listIncidentsByMonitor(
+  env: Env,
+  monitorId: string
+): Promise<IncidentRow[]> {
+  const result = await env.DB.prepare(
+    `SELECT id, monitor_id, title, status, started_at, resolved_at, failure_reason, created_at, updated_at
+     FROM incidents
+     WHERE monitor_id = ?
+     ORDER BY started_at DESC`
+  )
+    .bind(monitorId)
+    .all<IncidentRow>();
+
+  return result.results;
+}
+
+export async function listIncidentsForUser(env: Env, userId: string): Promise<IncidentRow[]> {
+  const result = await env.DB.prepare(
+    `SELECT incidents.id,
+            incidents.monitor_id,
+            incidents.title,
+            incidents.status,
+            incidents.started_at,
+            incidents.resolved_at,
+            incidents.failure_reason,
+            incidents.created_at,
+            incidents.updated_at
+     FROM incidents
+     INNER JOIN monitors ON monitors.id = incidents.monitor_id
+     WHERE monitors.user_id = ?
+     ORDER BY incidents.started_at DESC`
+  )
+    .bind(userId)
+    .all<IncidentRow>();
 
   return result.results;
 }
