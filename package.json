@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "corepack pnpm dev:worker",
     "dev:worker": "corepack pnpm --filter worker dev",
+    "dev:web": "corepack pnpm --filter web dev",
     "build": "corepack pnpm --filter worker build",
     "test": "corepack pnpm --filter worker test",
     "lint": "corepack pnpm --filter worker lint",
