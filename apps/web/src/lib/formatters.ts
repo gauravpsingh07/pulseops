@@ -17,6 +17,10 @@ export function formatMilliseconds(value: number | null | undefined): string {
   return `${Math.round(value)} ms`;
 }
 
+export function formatInterval(minutes: number): string {
+  return `${minutes} min`;
+}
+
 export function getHostname(value: string): string {
   try {
     return new URL(value).hostname;

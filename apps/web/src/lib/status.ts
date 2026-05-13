@@ -21,3 +21,21 @@ export function getStatusTone(status: MonitorStatus): "neutral" | "success" | "w
 
   return tones[status];
 }
+
+export function summarizeStatuses(monitors: Array<{ status: MonitorStatus }>) {
+  return monitors.reduce(
+    (summary, monitor) => {
+      summary.total += 1;
+      summary[monitor.status] += 1;
+
+      return summary;
+    },
+    {
+      total: 0,
+      operational: 0,
+      degraded: 0,
+      down: 0,
+      unknown: 0
+    }
+  );
+}
