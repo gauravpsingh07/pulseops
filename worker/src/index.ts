@@ -3,6 +3,7 @@ import { handleCheckRoute } from "./routes/checks";
 import { handleCronRoute } from "./routes/cron";
 import { handleIncidentRoute } from "./routes/incidents";
 import { handleMonitorRoute } from "./routes/monitors";
+import { handleStatusRoute } from "./routes/status";
 import { runScheduledChecks } from "./services/monitorRunner";
 import type { Env } from "./types/env";
 import { errorResponse, successResponse } from "./utils/response";
@@ -33,6 +34,12 @@ async function fetchHandler(request: Request, env: Env): Promise<Response> {
 
     if (request.method === "GET" && url.pathname === "/api/db-test") {
       return handleDbTest(env);
+    }
+
+    const statusResponse = await handleStatusRoute(request, env, url.pathname, url.searchParams);
+
+    if (statusResponse) {
+      return statusResponse;
     }
 
     const cronResponse = await handleCronRoute(request, env, url.pathname);

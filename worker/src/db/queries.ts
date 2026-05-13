@@ -123,6 +123,18 @@ export async function getMonitorByIdForUser(
   return row ? toMonitor(row) : null;
 }
 
+export async function getPublicMonitorBySlug(env: Env, slug: string): Promise<Monitor | null> {
+  const row = await env.DB.prepare(
+    `SELECT *
+     FROM monitors
+     WHERE public_slug = ? AND is_public = 1 AND is_active = 1`
+  )
+    .bind(slug)
+    .first<MonitorRow>();
+
+  return row ? toMonitor(row) : null;
+}
+
 export async function getRecentChecksByMonitor(
   env: Env,
   monitorId: string,
