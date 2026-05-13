@@ -1,4 +1,5 @@
 import { handleAuthRoute } from "./routes/auth";
+import { handleCheckRoute } from "./routes/checks";
 import { handleMonitorRoute } from "./routes/monitors";
 import type { Env } from "./types/env";
 import { errorResponse, successResponse } from "./utils/response";
@@ -35,6 +36,12 @@ async function fetchHandler(request: Request, env: Env): Promise<Response> {
 
     if (authResponse) {
       return authResponse;
+    }
+
+    const checkResponse = await handleCheckRoute(request, env, url.pathname, url.searchParams);
+
+    if (checkResponse) {
+      return checkResponse;
     }
 
     const monitorResponse = await handleMonitorRoute(request, env, url.pathname);

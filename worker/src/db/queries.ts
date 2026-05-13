@@ -26,6 +26,16 @@ export type Monitor = Omit<MonitorRow, "is_active" | "is_public"> & {
   is_public: boolean;
 };
 
+export type CheckRow = {
+  id: string;
+  monitor_id: string;
+  status: "success" | "failure";
+  status_code: number | null;
+  response_time_ms: number | null;
+  error_message: string | null;
+  checked_at: string;
+};
+
 function toMonitor(row: MonitorRow): Monitor {
   return {
     ...row,
@@ -61,6 +71,40 @@ export async function getActiveMonitorByIdForUser(
     .first<MonitorRow>();
 
   return row ? toMonitor(row) : null;
+}
+
+export async function getMonitorByIdForUser(
+  env: Env,
+  monitorId: string,
+  userId: string
+): Promise<Monitor | null> {
+  const row = await env.DB.prepare(
+    `SELECT *
+     FROM monitors
+     WHERE id = ? AND user_id = ?`
+  )
+    .bind(monitorId, userId)
+    .first<MonitorRow>();
+
+  return row ? toMonitor(row) : null;
+}
+
+export async function getRecentChecksByMonitor(
+  env: Env,
+  monitorId: string,
+  limit: number
+): Promise<CheckRow[]> {
+  const result = await env.DB.prepare(
+    `SELECT id, monitor_id, status, status_code, response_time_ms, error_message, checked_at
+     FROM checks
+     WHERE monitor_id = ?
+     ORDER BY checked_at DESC
+     LIMIT ?`
+  )
+    .bind(monitorId, limit)
+    .all<CheckRow>();
+
+  return result.results;
 }
 
 async function publicSlugExists(env: Env, slug: string): Promise<boolean> {
