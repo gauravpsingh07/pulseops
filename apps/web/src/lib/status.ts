@@ -24,6 +24,17 @@ export function getStatusTone(status: MonitorStatus): "neutral" | "success" | "w
   return tones[status];
 }
 
+export function getPublicStatusHeadline(status: MonitorStatus): string {
+  const headlines: Record<MonitorStatus, string> = {
+    unknown: "Unknown status",
+    operational: "All systems operational",
+    degraded: "Degraded performance",
+    down: "Service outage"
+  };
+
+  return headlines[status];
+}
+
 export function getCheckStatusLabel(status: CheckStatus): string {
   return status === "success" ? "Success" : "Failure";
 }

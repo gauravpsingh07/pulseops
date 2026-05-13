@@ -87,6 +87,8 @@ export type ResponseTimePoint = {
   status_code: number | null;
 };
 
+export type PublicCheck = ResponseTimePoint;
+
 export type MonitorMetrics = {
   uptime_percentage: number | null;
   average_response_time_ms: number | null;
@@ -105,6 +107,22 @@ export type RunMonitorCheckResult = {
   incident: Incident | null;
   incident_created: boolean;
   incident_resolved: boolean;
+};
+
+export type PublicIncident = Omit<Incident, "monitor_id" | "created_at" | "updated_at">;
+
+export type PublicStatus = {
+  monitor: {
+    name: string;
+    hostname: string;
+    status: Monitor["status"];
+  };
+  uptime_percentage: number | null;
+  average_response_time_ms: number | null;
+  last_checked_at: string | null;
+  recent_checks: PublicCheck[];
+  active_incident: PublicIncident | null;
+  resolved_incidents: PublicIncident[];
 };
 
 const apiBaseUrl = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_BASE_URL ?? "");
@@ -207,6 +225,20 @@ export async function getMonitorMetrics(id: string): Promise<MonitorMetrics> {
 
 export async function listMonitorIncidents(id: string): Promise<Incident[]> {
   const result = await apiRequest<{ incidents: Incident[] }>(`/api/monitors/${id}/incidents`);
+
+  return result.incidents;
+}
+
+export async function getPublicStatus(slug: string): Promise<PublicStatus> {
+  return apiRequest<PublicStatus>(`/api/status/${slug}`);
+}
+
+export async function getPublicStatusMetrics(slug: string): Promise<MonitorMetrics> {
+  return apiRequest<MonitorMetrics>(`/api/status/${slug}/metrics`);
+}
+
+export async function listPublicStatusIncidents(slug: string): Promise<PublicIncident[]> {
+  const result = await apiRequest<{ incidents: PublicIncident[] }>(`/api/status/${slug}/incidents`);
 
   return result.incidents;
 }
