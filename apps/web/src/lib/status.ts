@@ -1,4 +1,6 @@
 export type MonitorStatus = "unknown" | "operational" | "degraded" | "down";
+export type CheckStatus = "success" | "failure";
+export type IncidentStatus = "open" | "resolved";
 
 export function getStatusLabel(status: MonitorStatus): string {
   const labels: Record<MonitorStatus, string> = {
@@ -20,6 +22,22 @@ export function getStatusTone(status: MonitorStatus): "neutral" | "success" | "w
   };
 
   return tones[status];
+}
+
+export function getCheckStatusLabel(status: CheckStatus): string {
+  return status === "success" ? "Success" : "Failure";
+}
+
+export function getCheckStatusTone(status: CheckStatus): "success" | "danger" {
+  return status === "success" ? "success" : "danger";
+}
+
+export function getIncidentStatusLabel(status: IncidentStatus): string {
+  return status === "open" ? "Open" : "Resolved";
+}
+
+export function getIncidentStatusTone(status: IncidentStatus): "danger" | "success" {
+  return status === "open" ? "danger" : "success";
 }
 
 export function summarizeStatuses(monitors: Array<{ status: MonitorStatus }>) {

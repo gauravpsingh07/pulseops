@@ -56,6 +56,57 @@ export type CreateMonitorPayload = {
   is_public?: boolean;
 };
 
+export type UpdateMonitorPayload = Partial<CreateMonitorPayload>;
+
+export type MonitorCheck = {
+  id: string;
+  monitor_id: string;
+  status: "success" | "failure";
+  status_code: number | null;
+  response_time_ms: number | null;
+  error_message: string | null;
+  checked_at: string;
+};
+
+export type Incident = {
+  id: string;
+  monitor_id: string;
+  title: string;
+  status: "open" | "resolved";
+  started_at: string;
+  resolved_at: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ResponseTimePoint = {
+  checked_at: string;
+  response_time_ms: number | null;
+  status: MonitorCheck["status"];
+  status_code: number | null;
+};
+
+export type MonitorMetrics = {
+  uptime_percentage: number | null;
+  average_response_time_ms: number | null;
+  p95_response_time_ms: number | null;
+  total_checks: number;
+  successful_checks: number;
+  failed_checks: number;
+  latest_status: Monitor["status"];
+  response_time_series: ResponseTimePoint[];
+};
+
+export type RunMonitorCheckResult = {
+  check: MonitorCheck;
+  monitor_status: Monitor["status"];
+  monitor: Monitor;
+  incident: Incident | null;
+  incident_created: boolean;
+  incident_resolved: boolean;
+};
+
 const apiBaseUrl = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_BASE_URL ?? "");
 
 async function readApiResponse<T>(response: Response): Promise<ApiResponse<T>> {
@@ -119,4 +170,43 @@ export async function createMonitor(payload: CreateMonitorPayload): Promise<Moni
   });
 
   return result.monitor;
+}
+
+export async function getMonitor(id: string): Promise<Monitor> {
+  const result = await apiRequest<{ monitor: Monitor }>(`/api/monitors/${id}`);
+
+  return result.monitor;
+}
+
+export async function updateMonitor(id: string, payload: UpdateMonitorPayload): Promise<Monitor> {
+  const result = await apiRequest<{ monitor: Monitor }>(`/api/monitors/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+  return result.monitor;
+}
+
+export async function runMonitorCheck(id: string): Promise<RunMonitorCheckResult> {
+  return apiRequest<RunMonitorCheckResult>(`/api/monitors/${id}/check`, {
+    method: "POST"
+  });
+}
+
+export async function listMonitorChecks(id: string, limit = 50): Promise<MonitorCheck[]> {
+  const result = await apiRequest<{ checks: MonitorCheck[] }>(
+    `/api/monitors/${id}/checks?limit=${limit}`
+  );
+
+  return result.checks;
+}
+
+export async function getMonitorMetrics(id: string): Promise<MonitorMetrics> {
+  return apiRequest<MonitorMetrics>(`/api/monitors/${id}/metrics`);
+}
+
+export async function listMonitorIncidents(id: string): Promise<Incident[]> {
+  const result = await apiRequest<{ incidents: Incident[] }>(`/api/monitors/${id}/incidents`);
+
+  return result.incidents;
 }

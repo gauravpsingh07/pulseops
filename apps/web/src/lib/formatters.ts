@@ -21,6 +21,14 @@ export function formatInterval(minutes: number): string {
   return `${minutes} min`;
 }
 
+export function formatPercentage(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "N/A";
+  }
+
+  return `${value.toFixed(2)}%`;
+}
+
 export function getHostname(value: string): string {
   try {
     return new URL(value).hostname;
