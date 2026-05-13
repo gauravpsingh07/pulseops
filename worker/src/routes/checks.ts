@@ -1,11 +1,13 @@
 import { getMonitorByIdForUser, getRecentChecksByMonitor } from "../db/queries";
 import { authenticateRequest } from "../middleware/authMiddleware";
+import { getMonitorMetrics, parseMetricsWindow } from "../services/metricsService";
 import { runMonitorCheck } from "../services/monitorRunner";
 import type { Env } from "../types/env";
 import { errorResponse, successResponse } from "../utils/response";
 
 const runCheckPattern = /^\/api\/monitors\/([^/]+)\/check$/;
 const recentChecksPattern = /^\/api\/monitors\/([^/]+)\/checks$/;
+const metricsPattern = /^\/api\/monitors\/([^/]+)\/metrics$/;
 
 function getPathMonitorId(pattern: RegExp, pathname: string): string | null {
   const match = pattern.exec(pathname);
@@ -95,6 +97,34 @@ async function handleRecentChecks(
   return successResponse({ checks });
 }
 
+async function handleMetrics(
+  request: Request,
+  env: Env,
+  monitorId: string,
+  searchParams: URLSearchParams
+): Promise<Response> {
+  const { auth, response } = await requireAuth(request, env);
+
+  if (!auth) {
+    return response;
+  }
+
+  const monitor = await getMonitorByIdForUser(env, monitorId, auth.user.id);
+
+  if (!monitor) {
+    return errorResponse("NOT_FOUND", "Monitor not found.", 404);
+  }
+
+  if (!monitor.is_active) {
+    return errorResponse("MONITOR_INACTIVE", "Monitor is inactive.", 400);
+  }
+
+  const window = parseMetricsWindow(searchParams.get("window"));
+  const metrics = await getMonitorMetrics(env, monitor, window);
+
+  return successResponse(metrics);
+}
+
 export async function handleCheckRoute(
   request: Request,
   env: Env,
@@ -119,6 +149,16 @@ export async function handleCheckRoute(
     }
 
     return handleRecentChecks(request, env, recentChecksMonitorId, searchParams);
+  }
+
+  const metricsMonitorId = getPathMonitorId(metricsPattern, pathname);
+
+  if (metricsMonitorId) {
+    if (request.method !== "GET") {
+      return errorResponse("METHOD_NOT_ALLOWED", "Method not allowed.", 405);
+    }
+
+    return handleMetrics(request, env, metricsMonitorId, searchParams);
   }
 
   return null;
