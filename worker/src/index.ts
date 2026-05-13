@@ -6,7 +6,13 @@ import { handleMonitorRoute } from "./routes/monitors";
 import { handleStatusRoute } from "./routes/status";
 import { runScheduledChecks } from "./services/monitorRunner";
 import type { Env } from "./types/env";
-import { errorResponse, successResponse } from "./utils/response";
+import { withErrorHandling } from "./middleware/errorMiddleware";
+import {
+  errorResponse,
+  optionsResponse,
+  successResponse,
+  withResponseHeaders
+} from "./utils/response";
 
 async function handleHealth(): Promise<Response> {
   return successResponse({
@@ -27,7 +33,11 @@ async function handleDbTest(env: Env): Promise<Response> {
 async function fetchHandler(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
 
-  try {
+  if (request.method === "OPTIONS") {
+    return optionsResponse(request, env);
+  }
+
+  const response = await withErrorHandling(async () => {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return handleHealth();
     }
@@ -73,11 +83,9 @@ async function fetchHandler(request: Request, env: Env): Promise<Response> {
     }
 
     return errorResponse("NOT_FOUND", "Route not found.", 404);
-  } catch (error) {
-    console.error("Unhandled request error", error);
+  });
 
-    return errorResponse("INTERNAL_SERVER_ERROR", "Something went wrong.", 500);
-  }
+  return withResponseHeaders(response, request, env);
 }
 
 export async function scheduled(

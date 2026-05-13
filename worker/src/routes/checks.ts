@@ -1,5 +1,6 @@
 import { getMonitorByIdForUser, getRecentChecksByMonitor } from "../db/queries";
 import { authenticateRequest } from "../middleware/authMiddleware";
+import { checkRateLimit } from "../middleware/rateLimitMiddleware";
 import { getMonitorMetrics, parseMetricsWindow } from "../services/metricsService";
 import { runMonitorCheck } from "../services/monitorRunner";
 import type { Env } from "../types/env";
@@ -8,6 +9,11 @@ import { errorResponse, successResponse } from "../utils/response";
 const runCheckPattern = /^\/api\/monitors\/([^/]+)\/check$/;
 const recentChecksPattern = /^\/api\/monitors\/([^/]+)\/checks$/;
 const metricsPattern = /^\/api\/monitors\/([^/]+)\/metrics$/;
+const MANUAL_CHECK_RATE_LIMIT = {
+  maxRequests: 10,
+  route: "manual-check",
+  windowSeconds: 10 * 60
+};
 
 function getPathMonitorId(pattern: RegExp, pathname: string): string | null {
   const match = pattern.exec(pathname);
@@ -46,6 +52,15 @@ async function handleRunCheck(request: Request, env: Env, monitorId: string): Pr
 
   if (!auth) {
     return response;
+  }
+
+  const rateLimitResponse = await checkRateLimit(env, {
+    ...MANUAL_CHECK_RATE_LIMIT,
+    identifier: auth.user.id
+  });
+
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const monitor = await getMonitorByIdForUser(env, monitorId, auth.user.id);

@@ -6,6 +6,7 @@ import {
   updateMonitor
 } from "../db/queries";
 import { authenticateRequest } from "../middleware/authMiddleware";
+import { checkRateLimit } from "../middleware/rateLimitMiddleware";
 import type { Env } from "../types/env";
 import { errorResponse, successResponse } from "../utils/response";
 import {
@@ -16,6 +17,11 @@ import {
 } from "../utils/validation";
 
 const monitorDetailPattern = /^\/api\/monitors\/([^/]+)$/;
+const MONITOR_CREATE_RATE_LIMIT = {
+  maxRequests: 20,
+  route: "monitor:create",
+  windowSeconds: 60 * 60
+};
 
 function getMonitorId(pathname: string): string | null {
   const match = monitorDetailPattern.exec(pathname);
@@ -56,6 +62,15 @@ async function handleCreateMonitor(request: Request, env: Env): Promise<Response
 
   if (!auth) {
     return response;
+  }
+
+  const rateLimitResponse = await checkRateLimit(env, {
+    ...MONITOR_CREATE_RATE_LIMIT,
+    identifier: auth.user.id
+  });
+
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const body = await parseJsonBody(request);

@@ -9,6 +9,13 @@ import {
 import type { Env } from "../types/env";
 import { errorResponse, successResponse } from "../utils/response";
 import { authSchema, getValidationMessage, parseJsonBody } from "../utils/validation";
+import { checkRateLimit, getClientIp } from "../middleware/rateLimitMiddleware";
+
+const AUTH_RATE_LIMIT = {
+  maxRequests: 10,
+  route: "auth",
+  windowSeconds: 10 * 60
+};
 
 async function handleRegister(request: Request, env: Env): Promise<Response> {
   const body = await parseJsonBody(request);
@@ -73,6 +80,21 @@ export async function handleAuthRoute(
   env: Env,
   pathname: string
 ): Promise<Response | null> {
+  if (
+    pathname === "/api/auth/register" ||
+    pathname === "/api/auth/login" ||
+    pathname === "/api/auth/me"
+  ) {
+    const rateLimitResponse = await checkRateLimit(env, {
+      ...AUTH_RATE_LIMIT,
+      identifier: getClientIp(request)
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+  }
+
   if (request.method === "POST" && pathname === "/api/auth/register") {
     return handleRegister(request, env);
   }
