@@ -1,5 +1,6 @@
-import { Navigate, NavLink, Route, Routes } from "react-router-dom";
-import { useAuth } from "./hooks/useAuth";
+import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { LoadingState } from "./components/ui/LoadingState";
+import { AuthProvider, useAuth } from "./hooks/useAuth";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import MonitorDetailPage from "./pages/MonitorDetailPage";
@@ -12,10 +13,15 @@ type ProtectedRouteProps = {
 };
 
 function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingState label="Checking session" />;
+  }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
   return children;
@@ -83,5 +89,9 @@ function Shell() {
 }
 
 export default function App() {
-  return <Shell />;
+  return (
+    <AuthProvider>
+      <Shell />
+    </AuthProvider>
+  );
 }

@@ -27,7 +27,21 @@ export class ApiError extends Error {
   }
 }
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
+const apiBaseUrl = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_BASE_URL ?? "");
+
+async function readApiResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  try {
+    return (await response.json()) as ApiResponse<T>;
+  } catch {
+    return {
+      success: false,
+      error: {
+        code: "INVALID_RESPONSE",
+        message: "The API returned an invalid response."
+      }
+    };
+  }
+}
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -41,11 +55,20 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers
-  });
-  const payload = (await response.json()) as ApiResponse<T>;
+  let response: Response;
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to reach the API.";
+
+    throw new ApiError("NETWORK_ERROR", message, 0);
+  }
+
+  const payload = await readApiResponse<T>(response);
 
   if (!payload.success) {
     throw new ApiError(payload.error.code, payload.error.message, response.status);
