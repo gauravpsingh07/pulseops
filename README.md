@@ -166,15 +166,16 @@ Apply the D1 schema locally:
 corepack pnpm --filter worker exec wrangler d1 execute pulseops-db --local --file=src/db/schema.sql
 ```
 
-Run the Worker:
+Run both the Worker and web app:
+
+```powershell
+corepack pnpm dev
+```
+
+Or run them separately:
 
 ```powershell
 corepack pnpm --filter worker dev -- --port 8787
-```
-
-Run the web app:
-
-```powershell
 corepack pnpm dev:web
 ```
 

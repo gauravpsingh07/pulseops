@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.11.0",
   "scripts": {
-    "dev": "corepack pnpm dev:worker",
+    "dev": "corepack pnpm --parallel --filter worker --filter web dev",
     "dev:worker": "corepack pnpm --filter worker dev",
     "dev:web": "corepack pnpm --filter web dev",
     "build": "corepack pnpm --filter worker build && corepack pnpm --filter web build",
