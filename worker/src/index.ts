@@ -1,4 +1,5 @@
 import { handleAuthRoute } from "./routes/auth";
+import { handleMonitorRoute } from "./routes/monitors";
 import type { Env } from "./types/env";
 import { errorResponse, successResponse } from "./utils/response";
 
@@ -34,6 +35,12 @@ async function fetchHandler(request: Request, env: Env): Promise<Response> {
 
     if (authResponse) {
       return authResponse;
+    }
+
+    const monitorResponse = await handleMonitorRoute(request, env, url.pathname);
+
+    if (monitorResponse) {
+      return monitorResponse;
     }
 
     return errorResponse("NOT_FOUND", "Route not found.", 404);
