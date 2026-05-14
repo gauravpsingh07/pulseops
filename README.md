@@ -4,6 +4,34 @@ Serverless Monitoring and Incident Status Platform
 
 PulseOps is a portfolio-grade uptime monitoring platform built with React, TypeScript, Cloudflare Workers, Cloudflare D1, Worker Cron Triggers, and Discord webhooks. It lets users create monitors, run checks manually or on a schedule, track latency, automate incidents, and publish public status pages.
 
+## Live Demo
+
+- Frontend: [https://pulseops-a0u.pages.dev](https://pulseops-a0u.pages.dev)
+- Backend health check: [https://pulseops-api.pulseops-gauravpsingh.workers.dev/api/health](https://pulseops-api.pulseops-gauravpsingh.workers.dev/api/health)
+- GitHub: [https://github.com/gauravpsingh07/pulseops](https://github.com/gauravpsingh07/pulseops)
+
+## Deployment Status
+
+PulseOps is deployed on a free-tier Cloudflare architecture:
+
+- Frontend: Cloudflare Pages
+- Backend API: Cloudflare Workers
+- Database: Cloudflare D1
+- Scheduler: Cloudflare Cron Triggers
+- Alerts: Discord Webhooks
+- CI/CD: GitHub Actions
+
+The deployed app supports user registration, login, monitor creation, manual checks, scheduled checks, incident detection, Discord outage/recovery alerts, and public status pages.
+
+## Demo Flow
+
+1. Register or log in.
+2. Create a website/API monitor.
+3. Run a manual check or wait for scheduled checks.
+4. View uptime, response time, check history, and incidents.
+5. Add a Discord webhook to receive outage and recovery alerts.
+6. Enable public status and open `/status/:slug` in an incognito browser.
+
 ## 1. Overview
 
 PulseOps monitors websites and APIs from a Cloudflare Worker. Authenticated users can manage monitors, inspect uptime metrics, view recent check history, configure Discord alerts, and expose a public status page for selected services.
@@ -284,16 +312,35 @@ corepack pnpm build
 
 Backend service tests use Vitest and mocked D1/fetch behavior. They do not require a Cloudflare account or a Discord webhook.
 
-## 19. Screenshots Placeholder
+## 19. Screenshots
 
-Add screenshots before publishing:
+### Login
 
-- Dashboard monitor list
-- Monitor detail page with response-time chart
-- Public status page
-- Incident state
+![PulseOps login page](docs/screenshots/login.png)
 
-Recommended folder: `docs/screenshots/`
+### Dashboard
+
+![PulseOps dashboard](docs/screenshots/dashboard.png)
+
+### Monitor Settings
+
+![PulseOps monitor settings](docs/screenshots/monitor-detail-operational.png)
+
+### Monitor Detail - Operational
+
+![PulseOps operational monitor detail](docs/screenshots/monitor-detail-operational1.png)
+
+### Monitor Detail - Degraded
+
+![PulseOps degraded monitor detail](docs/screenshots/MonitorSetting1.png)
+
+### Public Status Page
+
+![PulseOps public status page](docs/screenshots/public-status.png)
+
+### Discord Alerts
+
+![PulseOps Discord outage and recovery alerts](docs/screenshots/discord-alert.png)
 
 ## 20. Future Improvements
 
@@ -306,11 +353,3 @@ Recommended folder: `docs/screenshots/`
 - More granular uptime windows.
 - Frontend component tests.
 - Cloudflare analytics integration.
-
-## 21. Resume Bullets
-
-PulseOps | React, TypeScript, Cloudflare Workers, D1, Discord Webhooks
-
-- Engineered a serverless monitoring platform with Cloudflare Workers, D1, and TypeScript, supporting scheduled uptime checks, latency tracking, incident automation, webhook alerts, and public status pages.
-- Implemented reliability workflows including 3-failure outage detection, automatic incident resolution, alert deduplication, rate limiting, input validation, and check-history retention.
-- Built a React + Tailwind dashboard with uptime metrics and response-time charts, deployed through Cloudflare Pages with GitHub Actions CI/CD on a free-tier cloud architecture.
