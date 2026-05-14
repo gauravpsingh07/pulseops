@@ -4,7 +4,8 @@ const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 const PASSWORD_ALGORITHM = "pbkdf2-sha256";
-const PASSWORD_ITERATIONS = 210_000;
+const MAX_WORKER_PBKDF2_ITERATIONS = 100_000;
+const PASSWORD_ITERATIONS = MAX_WORKER_PBKDF2_ITERATIONS;
 const SALT_BYTES = 16;
 const HASH_BYTES = 32;
 const JWT_ALGORITHM = "HS256";
@@ -56,20 +57,30 @@ async function importPbkdf2Key(password: string): Promise<CryptoKey> {
   ]);
 }
 
-async function derivePasswordHash(password: string, salt: Uint8Array): Promise<Uint8Array> {
+async function derivePasswordHash(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
   const key = await importPbkdf2Key(password);
   const bits = await crypto.subtle.deriveBits(
     {
       name: "PBKDF2",
       hash: "SHA-256",
       salt,
-      iterations: PASSWORD_ITERATIONS
+      iterations
     },
     key,
     HASH_BYTES * 8
   );
 
   return new Uint8Array(bits);
+}
+
+function parseStoredIterations(value: string | undefined): number | null {
+  const iterations = Number(value);
+
+  if (!Number.isInteger(iterations) || iterations <= 0 || iterations > MAX_WORKER_PBKDF2_ITERATIONS) {
+    return null;
+  }
+
+  return iterations;
 }
 
 function constantTimeEqual(left: Uint8Array, right: Uint8Array): boolean {
@@ -108,7 +119,7 @@ async function signHmacSha256(value: string, secret: string): Promise<string> {
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
-  const hash = await derivePasswordHash(password, salt);
+  const hash = await derivePasswordHash(password, salt, PASSWORD_ITERATIONS);
 
   return [
     PASSWORD_ALGORITHM,
@@ -120,8 +131,9 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   const [algorithm, iterations, saltValue, hashValue] = storedHash.split("$");
+  const parsedIterations = parseStoredIterations(iterations);
 
-  if (algorithm !== PASSWORD_ALGORITHM || Number(iterations) !== PASSWORD_ITERATIONS) {
+  if (algorithm !== PASSWORD_ALGORITHM || parsedIterations === null) {
     return false;
   }
 
@@ -130,7 +142,7 @@ export async function verifyPassword(password: string, storedHash: string): Prom
   }
 
   const expectedHash = base64UrlToBytes(hashValue);
-  const actualHash = await derivePasswordHash(password, base64UrlToBytes(saltValue));
+  const actualHash = await derivePasswordHash(password, base64UrlToBytes(saltValue), parsedIterations);
 
   return constantTimeEqual(actualHash, expectedHash);
 }
