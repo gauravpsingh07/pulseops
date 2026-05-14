@@ -1,15 +1,15 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ResponseTimeChart } from "../components/dashboard/ResponseTimeChart";
 import { IncidentList } from "../components/incidents/IncidentList";
 import { CheckHistoryTable } from "../components/monitors/CheckHistoryTable";
+import { MonitorSettingsForm } from "../components/monitors/MonitorSettingsForm";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { ErrorState } from "../components/ui/ErrorState";
-import { Input } from "../components/ui/Input";
 import { LoadingState } from "../components/ui/LoadingState";
-import type { Incident, Monitor, MonitorCheck, MonitorMetrics } from "../lib/api";
+import type { Incident, Monitor, MonitorCheck, MonitorMetrics, UpdateMonitorPayload } from "../lib/api";
 import {
   ApiError,
   getMonitor,
@@ -56,14 +56,11 @@ export default function MonitorDetailPage() {
   const [checks, setChecks] = useState<MonitorCheck[]>([]);
   const [metrics, setMetrics] = useState<MonitorMetrics | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [alertWebhookUrl, setAlertWebhookUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [runningCheck, setRunningCheck] = useState(false);
-  const [savingPublicStatus, setSavingPublicStatus] = useState(false);
-  const [savingWebhook, setSavingWebhook] = useState(false);
 
   const loadMonitorDetail = useCallback(async () => {
     if (!id) {
@@ -86,7 +83,6 @@ export default function MonitorDetailPage() {
       setChecks(checksResult);
       setMetrics(metricsResult);
       setIncidents(incidentsResult);
-      setAlertWebhookUrl(monitorResult.alert_webhook_url ?? "");
     } catch (caughtError) {
       setError(getErrorMessage(caughtError, "Unable to load monitor detail."));
     } finally {
@@ -118,57 +114,20 @@ export default function MonitorDetailPage() {
     }
   }
 
-  async function handleTogglePublicStatus() {
-    if (!id || !monitor) {
-      return;
-    }
-
-    setSavingPublicStatus(true);
-    setActionError(null);
-    setActionMessage(null);
-
-    try {
-      const updatedMonitor = await updateMonitor(id, { is_public: !monitor.is_public });
-      setMonitor(updatedMonitor);
-      setActionMessage(updatedMonitor.is_public ? "Public status enabled." : "Public status disabled.");
-      await loadMonitorDetail();
-    } catch (caughtError) {
-      setActionError(getErrorMessage(caughtError, "Unable to update public status."));
-    } finally {
-      setSavingPublicStatus(false);
-    }
-  }
-
-  async function handleSaveWebhook(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  const handleSaveSettings = useCallback(async (payload: UpdateMonitorPayload) => {
     if (!id) {
-      return;
+      throw new Error("Monitor id is missing.");
     }
 
-    const trimmedWebhookUrl = alertWebhookUrl.trim();
-
-    if (!trimmedWebhookUrl) {
-      setActionError("Enter a Discord webhook URL before saving.");
-      setActionMessage(null);
-      return;
-    }
-
-    setSavingWebhook(true);
     setActionError(null);
     setActionMessage(null);
 
-    try {
-      const updatedMonitor = await updateMonitor(id, { alert_webhook_url: trimmedWebhookUrl });
-      setMonitor(updatedMonitor);
-      setAlertWebhookUrl(updatedMonitor.alert_webhook_url ?? "");
-      setActionMessage("Alert webhook saved.");
-    } catch (caughtError) {
-      setActionError(getErrorMessage(caughtError, "Unable to save alert webhook."));
-    } finally {
-      setSavingWebhook(false);
-    }
-  }
+    const updatedMonitor = await updateMonitor(id, payload);
+    setMonitor(updatedMonitor);
+    await loadMonitorDetail();
+
+    return updatedMonitor;
+  }, [id, loadMonitorDetail]);
 
   if (loading) {
     return <LoadingState label="Loading monitor detail" />;
@@ -278,43 +237,11 @@ export default function MonitorDetailPage() {
           </Card>
 
           <Card>
-            <h2 className="text-lg font-semibold text-ink-950">Public Status</h2>
-            <div className="mt-5 space-y-4">
-              <label className="flex items-center justify-between gap-4 text-sm font-medium text-ink-700">
-                <span>Publish status page</span>
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-pulse-600 focus:ring-pulse-500"
-                  checked={monitor.is_public}
-                  disabled={savingPublicStatus}
-                  onChange={handleTogglePublicStatus}
-                />
-              </label>
-              {monitor.is_public && publicStatusPath ? (
-                <Link
-                  className="block break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-pulse-700 hover:text-pulse-600"
-                  to={publicStatusPath}
-                >
-                  {publicStatusPath}
-                </Link>
-              ) : null}
-            </div>
-          </Card>
-
-          <Card>
-            <h2 className="text-lg font-semibold text-ink-950">Discord Alerts</h2>
-            <form className="mt-5 space-y-4" onSubmit={handleSaveWebhook}>
-              <Input
-                label="Alert webhook URL"
-                name="alert_webhook_url"
-                type="url"
-                value={alertWebhookUrl}
-                onChange={(event) => setAlertWebhookUrl(event.target.value)}
-              />
-              <Button className="w-full" disabled={savingWebhook} type="submit">
-                {savingWebhook ? "Saving Webhook" : "Save Webhook"}
-              </Button>
-            </form>
+            <MonitorSettingsForm
+              monitor={monitor}
+              publicStatusPath={publicStatusPath}
+              onSave={handleSaveSettings}
+            />
           </Card>
         </aside>
       </div>
