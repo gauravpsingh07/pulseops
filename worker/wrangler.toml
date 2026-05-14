@@ -5,7 +5,7 @@ compatibility_date = "2026-05-13"
 [[d1_databases]]
 binding = "DB"
 database_name = "pulseops-db"
-database_id = "YOUR_DATABASE_ID"
+database_id = "58e410de-97ed-46dc-a57f-f4041ba053b6"
 
 [triggers]
 crons = ["*/5 * * * *"]

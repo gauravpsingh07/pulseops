@@ -22,22 +22,32 @@ const securityHeaders = {
   "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
 };
 
+const defaultAllowedOrigins = new Set([
+  "https://pulseops-a0u.pages.dev",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://127.0.0.1:5175"
+]);
+
 type CorsEnv = {
   FRONTEND_ORIGIN?: string;
 };
 
-function isLocalDevOrigin(origin: string): boolean {
-  try {
-    const url = new URL(origin);
+function normalizeOrigin(origin: string): string {
+  return origin.trim().replace(/\/$/, "");
+}
 
-    return (
-      url.protocol === "http:" &&
-      (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-      Boolean(url.port)
-    );
-  } catch {
-    return false;
+function getConfiguredOrigins(env: CorsEnv): Set<string> {
+  const origins = new Set(defaultAllowedOrigins);
+
+  if (env.FRONTEND_ORIGIN) {
+    origins.add(normalizeOrigin(env.FRONTEND_ORIGIN));
   }
+
+  return origins;
 }
 
 function getAllowedOrigin(request: Request, env: CorsEnv): string | null {
@@ -47,11 +57,9 @@ function getAllowedOrigin(request: Request, env: CorsEnv): string | null {
     return null;
   }
 
-  if (env.FRONTEND_ORIGIN) {
-    return origin === env.FRONTEND_ORIGIN ? origin : null;
-  }
+  const normalizedOrigin = normalizeOrigin(origin);
 
-  return isLocalDevOrigin(origin) ? origin : null;
+  return getConfiguredOrigins(env).has(normalizedOrigin) ? normalizedOrigin : null;
 }
 
 function applyBaseHeaders(headers: Headers): void {
@@ -70,6 +78,7 @@ function applyCorsHeaders(headers: Headers, request: Request, env: CorsEnv): voi
   headers.set("Access-Control-Allow-Origin", allowedOrigin);
   headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
   headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  headers.set("Access-Control-Max-Age", "86400");
   headers.set("Vary", "Origin");
 }
 
