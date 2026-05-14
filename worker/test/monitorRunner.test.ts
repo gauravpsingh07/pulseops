@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runMonitorCheck } from "../src/services/monitorRunner";
+import { isMonitorDue, runMonitorCheck } from "../src/services/monitorRunner";
+import type { ScheduledMonitor } from "../src/db/queries";
 import { createIncident, createMonitor, createTestEnv, readMonitor } from "./fakeD1";
 
 function mockFetchSuccess(status = 200): void {
@@ -18,9 +19,43 @@ function mockFetchFailure(message = "Network failure"): void {
   );
 }
 
+function createScheduledMonitor(overrides: Partial<ScheduledMonitor> = {}): ScheduledMonitor {
+  return {
+    ...createMonitor(),
+    last_checked_at: null,
+    ...overrides
+  };
+}
+
 describe("monitorRunner", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("treats a monitor as due inside the scheduled grace window", () => {
+    const monitor = createScheduledMonitor({
+      interval_minutes: 5,
+      last_checked_at: "2026-05-14 21:15:09"
+    });
+    const nowMs = Date.parse("2026-05-14T21:20:07Z");
+
+    expect(isMonitorDue(monitor, nowMs)).toBe(true);
+  });
+
+  it("skips a monitor checked too recently", () => {
+    const monitor = createScheduledMonitor({
+      interval_minutes: 5,
+      last_checked_at: "2026-05-14 21:18:30"
+    });
+    const nowMs = Date.parse("2026-05-14T21:20:00Z");
+
+    expect(isMonitorDue(monitor, nowMs)).toBe(false);
+  });
+
+  it("treats a never-checked monitor as due", () => {
+    const monitor = createScheduledMonitor({ last_checked_at: null });
+
+    expect(isMonitorDue(monitor, Date.parse("2026-05-14T21:20:00Z"))).toBe(true);
   });
 
   it("marks a monitor operational after a successful check", async () => {

@@ -36,6 +36,7 @@ type RawCheckResult = {
 };
 
 const CHECK_RETENTION_DAYS = 30;
+const SCHEDULED_DUE_GRACE_MS = 60 * 1000;
 
 function parseSqliteTimestamp(timestamp: string): number {
   const parsed = Date.parse(`${timestamp.replace(" ", "T")}Z`);
@@ -43,7 +44,7 @@ function parseSqliteTimestamp(timestamp: string): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function isMonitorDue(monitor: ScheduledMonitor, nowMs: number): boolean {
+export function isMonitorDue(monitor: ScheduledMonitor, nowMs: number): boolean {
   if (!monitor.last_checked_at) {
     return true;
   }
@@ -54,7 +55,9 @@ function isMonitorDue(monitor: ScheduledMonitor, nowMs: number): boolean {
     return true;
   }
 
-  return nowMs - lastCheckedAtMs >= monitor.interval_minutes * 60 * 1000;
+  const dueAtMs = lastCheckedAtMs + monitor.interval_minutes * 60 * 1000;
+
+  return nowMs >= dueAtMs - SCHEDULED_DUE_GRACE_MS;
 }
 
 function getFetchErrorMessage(error: unknown, timeoutMs: number): string {
