@@ -70,11 +70,9 @@ export function MonitorSettingsForm({ monitor, publicStatusPath, onSave }: Monit
       is_public: isPublic
     };
 
+    // Send null when the field is emptied so the API clears a saved webhook.
     const trimmedWebhookUrl = alertWebhookUrl.trim();
-
-    if (trimmedWebhookUrl) {
-      payload.alert_webhook_url = trimmedWebhookUrl;
-    }
+    payload.alert_webhook_url = trimmedWebhookUrl || null;
 
     try {
       await onSave(payload);

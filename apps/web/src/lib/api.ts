@@ -56,7 +56,10 @@ export type CreateMonitorPayload = {
   is_public?: boolean;
 };
 
-export type UpdateMonitorPayload = Partial<CreateMonitorPayload>;
+export type UpdateMonitorPayload = Partial<Omit<CreateMonitorPayload, "alert_webhook_url">> & {
+  // null clears a previously saved webhook; omitting the field leaves it unchanged.
+  alert_webhook_url?: string | null;
+};
 
 export type MonitorCheck = {
   id: string;

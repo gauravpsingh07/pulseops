@@ -110,9 +110,11 @@ Scheduled checks include retention cleanup:
 
 ```text
 delete checks where checked_at < now - 30 days
+delete rate_limits where window_start < now - 24 hours
 ```
 
-The cleanup result is returned in the scheduled summary as `cleanupDeleted`.
+The cleanup results are returned in the scheduled summary as `cleanupDeleted`
+and `rateLimitRowsDeleted`.
 
 Manual checks do not run retention cleanup.
 

@@ -164,7 +164,7 @@ Summary:
 - The first down transition opens one incident.
 - Duplicate open incidents are not created.
 - Recovery resolves the open incident and can send a Discord resolution alert.
-- Scheduled check retention deletes checks older than 30 days.
+- Scheduled check retention deletes checks older than 30 days and rate-limit counters older than 24 hours.
 
 ## 11. Local Development
 
@@ -291,9 +291,10 @@ Production usage should still consider Worker invocation limits, D1 read/write l
 ## 17. Security Notes
 
 - Passwords are hashed with PBKDF2-SHA256.
-- JWTs are signed with `JWT_SECRET`.
+- JWTs are signed with `JWT_SECRET`; the cron fallback secret is compared in constant time.
 - Secrets are never hardcoded.
 - Zod validates request bodies.
+- Monitor URLs are restricted to `http`/`https`, and alert webhooks are restricted to Discord webhook endpoints so the Worker never POSTs to arbitrary destinations.
 - D1-backed rate limits protect auth, monitor creation, manual checks, and cron fallback.
 - CORS allows configured frontend origin or localhost development origins.
 - Security headers include `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and restrictive `Permissions-Policy`.

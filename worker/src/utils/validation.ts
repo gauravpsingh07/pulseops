@@ -16,16 +16,55 @@ const monitorIntervalSchema = z.union([
   z.literal(60)
 ]);
 
-const webhookUrlSchema = z
+// Monitors may only target regular web endpoints.
+const monitorUrlSchema = z
   .string()
   .trim()
   .url()
+  .refine(
+    (value) => {
+      try {
+        const parsed = new URL(value);
+
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Monitor URL must use http or https." }
+  );
+
+const DISCORD_WEBHOOK_PREFIXES = [
+  "https://discord.com/api/webhooks/",
+  "https://discordapp.com/api/webhooks/"
+];
+
+// Accepts a Discord webhook URL, or null/empty string to clear the webhook.
+// The worker POSTs incident payloads to this URL, so it is restricted to
+// Discord's webhook endpoints instead of arbitrary destinations.
+const webhookUrlSchema = z
+  .union([z.string(), z.null()])
   .optional()
-  .transform((value) => value || undefined);
+  .transform((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    const trimmed = (value ?? "").trim();
+
+    return trimmed === "" ? null : trimmed;
+  })
+  .refine(
+    (value) =>
+      value === undefined ||
+      value === null ||
+      DISCORD_WEBHOOK_PREFIXES.some((prefix) => value.startsWith(prefix)),
+    { message: "Alert webhook must be a Discord webhook URL." }
+  );
 
 export const createMonitorSchema = z.object({
   name: z.string().trim().min(1),
-  url: z.string().trim().url(),
+  url: monitorUrlSchema,
   method: monitorMethodSchema.default("GET"),
   interval_minutes: monitorIntervalSchema.default(5),
   timeout_ms: z.number().int().min(1000).max(30000).default(10000),
@@ -36,7 +75,7 @@ export const createMonitorSchema = z.object({
 export const updateMonitorSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
-    url: z.string().trim().url().optional(),
+    url: monitorUrlSchema.optional(),
     method: monitorMethodSchema.optional(),
     interval_minutes: monitorIntervalSchema.optional(),
     timeout_ms: z.number().int().min(1000).max(30000).optional(),

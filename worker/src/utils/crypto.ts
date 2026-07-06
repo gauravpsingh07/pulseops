@@ -83,6 +83,10 @@ function parseStoredIterations(value: string | undefined): number | null {
   return iterations;
 }
 
+export function timingSafeStringEqual(left: string, right: string): boolean {
+  return constantTimeEqual(textEncoder.encode(left), textEncoder.encode(right));
+}
+
 function constantTimeEqual(left: Uint8Array, right: Uint8Array): boolean {
   if (left.length !== right.length) {
     return false;

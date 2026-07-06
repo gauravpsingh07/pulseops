@@ -180,6 +180,19 @@ export async function deleteChecksOlderThan(env: Env, retentionDays: number): Pr
   return result.meta.changes ?? 0;
 }
 
+export async function deleteRateLimitsOlderThan(env: Env, retentionHours: number): Promise<number> {
+  // window_start is stored as an ISO string, so normalize through datetime()
+  // before comparing against the cutoff.
+  const result = await env.DB.prepare(
+    `DELETE FROM rate_limits
+     WHERE datetime(window_start) < datetime('now', ?)`
+  )
+    .bind(`-${retentionHours} hours`)
+    .run();
+
+  return result.meta.changes ?? 0;
+}
+
 export async function getOpenIncidentByMonitor(
   env: Env,
   monitorId: string

@@ -1,6 +1,7 @@
 import type { IncidentRow, Monitor, ScheduledMonitor } from "../db/queries";
 import {
   deleteChecksOlderThan,
+  deleteRateLimitsOlderThan,
   getActiveMonitorByIdForUser,
   listActiveMonitorsForScheduling,
   type CheckRow
@@ -26,6 +27,7 @@ export type ScheduledChecksSummary = {
   skipped: number;
   failed: number;
   cleanupDeleted: number;
+  rateLimitRowsDeleted: number;
 };
 
 type RawCheckResult = {
@@ -36,6 +38,7 @@ type RawCheckResult = {
 };
 
 const CHECK_RETENTION_DAYS = 30;
+const RATE_LIMIT_RETENTION_HOURS = 24;
 const SCHEDULED_DUE_GRACE_MS = 60 * 1000;
 
 function parseSqliteTimestamp(timestamp: string): number {
@@ -221,7 +224,8 @@ export async function runScheduledChecks(env: Env): Promise<ScheduledChecksSumma
     checked: 0,
     skipped: 0,
     failed: 0,
-    cleanupDeleted: 0
+    cleanupDeleted: 0,
+    rateLimitRowsDeleted: 0
   };
   const nowMs = Date.now();
 
@@ -229,6 +233,12 @@ export async function runScheduledChecks(env: Env): Promise<ScheduledChecksSumma
     summary.cleanupDeleted = await deleteChecksOlderThan(env, CHECK_RETENTION_DAYS);
   } catch (error) {
     console.error("Scheduled check retention cleanup failed", error);
+  }
+
+  try {
+    summary.rateLimitRowsDeleted = await deleteRateLimitsOlderThan(env, RATE_LIMIT_RETENTION_HOURS);
+  } catch (error) {
+    console.error("Scheduled rate-limit cleanup failed", error);
   }
 
   const monitors = await listActiveMonitorsForScheduling(env);
