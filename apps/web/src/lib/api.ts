@@ -140,6 +140,21 @@ export type PublicStatus = {
   resolved_incidents: PublicIncident[];
 };
 
+export type BoardMonitor = {
+  name: string;
+  hostname: string;
+  status: Monitor["status"];
+  public_slug: string | null;
+  has_open_incident: boolean;
+  daily_stats: DailyStat[];
+};
+
+export type PublicBoard = {
+  board_slug: string;
+  overall_status: Monitor["status"];
+  monitors: BoardMonitor[];
+};
+
 const apiBaseUrl = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_BASE_URL ?? "");
 
 async function readApiResponse<T>(response: Response): Promise<ApiResponse<T>> {
@@ -246,6 +261,22 @@ export async function listMonitorIncidents(id: string): Promise<Incident[]> {
 
 export async function getPublicStatus(slug: string): Promise<PublicStatus> {
   return apiRequest<PublicStatus>(`/api/status/${slug}`);
+}
+
+export async function getBoardSlug(): Promise<string | null> {
+  const result = await apiRequest<{ board_slug: string | null }>("/api/board");
+
+  return result.board_slug;
+}
+
+export async function ensureBoardSlug(): Promise<string> {
+  const result = await apiRequest<{ board_slug: string }>("/api/board", { method: "POST" });
+
+  return result.board_slug;
+}
+
+export async function getPublicBoard(slug: string): Promise<PublicBoard> {
+  return apiRequest<PublicBoard>(`/api/board/${slug}`);
 }
 
 export async function getPublicStatusMetrics(slug: string): Promise<MonitorMetrics> {

@@ -1,4 +1,5 @@
 import { handleAuthRoute } from "./routes/auth";
+import { handleBoardRoute } from "./routes/board";
 import { handleCheckRoute } from "./routes/checks";
 import { handleCronRoute } from "./routes/cron";
 import { handleIncidentRoute } from "./routes/incidents";
@@ -50,6 +51,12 @@ async function fetchHandler(request: Request, env: Env): Promise<Response> {
 
     if (statusResponse) {
       return statusResponse;
+    }
+
+    const boardResponse = await handleBoardRoute(request, env, url.pathname);
+
+    if (boardResponse) {
+      return boardResponse;
     }
 
     const cronResponse = await handleCronRoute(request, env, url.pathname);

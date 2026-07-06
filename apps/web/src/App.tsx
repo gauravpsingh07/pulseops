@@ -5,6 +5,7 @@ import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import MonitorDetailPage from "./pages/MonitorDetailPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import PublicBoardPage from "./pages/PublicBoardPage";
 import PublicStatusPage from "./pages/PublicStatusPage";
 import RegisterPage from "./pages/RegisterPage";
 
@@ -81,6 +82,7 @@ function Shell() {
             }
           />
           <Route path="/status/:slug" element={<PublicStatusPage />} />
+          <Route path="/board/:slug" element={<PublicBoardPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>

@@ -37,3 +37,8 @@ SELECT
   AVG(CASE WHEN status = 'success' THEN response_time_ms END)
 FROM checks
 GROUP BY monitor_id, date(checked_at);
+
+-- Combined status boards: one public page per user.
+-- NOTE: ALTER TABLE has no IF NOT EXISTS in SQLite, so run this migration once.
+ALTER TABLE users ADD COLUMN board_slug TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_board_slug ON users(board_slug);

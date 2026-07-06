@@ -269,6 +269,53 @@ export async function listIncidentsForUser(env: Env, userId: string): Promise<In
   return result.results;
 }
 
+export async function listPublicMonitorsByUser(env: Env, userId: string): Promise<Monitor[]> {
+  const result = await env.DB.prepare(
+    `SELECT *
+     FROM monitors
+     WHERE user_id = ? AND is_public = 1 AND is_active = 1
+     ORDER BY created_at ASC`
+  )
+    .bind(userId)
+    .all<MonitorRow>();
+
+  return result.results.map(toMonitor);
+}
+
+export async function getUserBoardSlug(env: Env, userId: string): Promise<string | null> {
+  const row = await env.DB.prepare(
+    `SELECT board_slug
+     FROM users
+     WHERE id = ?`
+  )
+    .bind(userId)
+    .first<{ board_slug: string | null }>();
+
+  return row?.board_slug ?? null;
+}
+
+export async function getUserIdByBoardSlug(env: Env, slug: string): Promise<string | null> {
+  const row = await env.DB.prepare(
+    `SELECT id
+     FROM users
+     WHERE board_slug = ?`
+  )
+    .bind(slug)
+    .first<{ id: string }>();
+
+  return row?.id ?? null;
+}
+
+export async function setUserBoardSlug(env: Env, userId: string, slug: string): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE users
+     SET board_slug = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`
+  )
+    .bind(slug, userId)
+    .run();
+}
+
 async function publicSlugExists(env: Env, slug: string): Promise<boolean> {
   const row = await env.DB.prepare(
     `SELECT id

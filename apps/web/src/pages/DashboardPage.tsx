@@ -10,7 +10,7 @@ import { ErrorState } from "../components/ui/ErrorState";
 import { LoadingState } from "../components/ui/LoadingState";
 import { useAuth } from "../hooks/useAuth";
 import type { Monitor } from "../lib/api";
-import { ApiError, listMonitors } from "../lib/api";
+import { ApiError, ensureBoardSlug, listMonitors } from "../lib/api";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -18,6 +18,23 @@ export default function DashboardPage() {
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [boardBusy, setBoardBusy] = useState(false);
+
+  async function openStatusBoard() {
+    setBoardBusy(true);
+    setError(null);
+
+    try {
+      const slug = await ensureBoardSlug();
+      navigate(`/board/${slug}`);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiError ? caughtError.message : "Unable to open the status board."
+      );
+    } finally {
+      setBoardBusy(false);
+    }
+  }
 
   const loadMonitors = useCallback(async () => {
     setError(null);
@@ -48,9 +65,14 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-semibold text-ink-950">Dashboard</h1>
           {user ? <p className="mt-2 text-sm font-medium text-ink-500">{user.email}</p> : null}
         </div>
-        <Button type="button" variant="secondary" onClick={handleLogout}>
-          Logout
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="secondary" onClick={openStatusBoard} disabled={boardBusy}>
+            {boardBusy ? "Opening..." : "Public status board"}
+          </Button>
+          <Button type="button" variant="secondary" onClick={handleLogout}>
+            Logout
+          </Button>
+        </div>
       </div>
 
       {error ? <ErrorState message={error} /> : null}
