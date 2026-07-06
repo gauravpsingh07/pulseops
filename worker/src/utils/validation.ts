@@ -62,15 +62,27 @@ const webhookUrlSchema = z
     { message: "Alert webhook must be a Discord webhook URL." }
   );
 
-export const createMonitorSchema = z.object({
-  name: z.string().trim().min(1),
-  url: monitorUrlSchema,
-  method: monitorMethodSchema.default("GET"),
-  interval_minutes: monitorIntervalSchema.default(5),
-  timeout_ms: z.number().int().min(1000).max(30000).default(10000),
-  alert_webhook_url: webhookUrlSchema,
-  is_public: z.boolean().default(false)
-});
+export const createMonitorSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    type: z.enum(["http", "heartbeat"]).default("http"),
+    url: monitorUrlSchema.optional(),
+    method: monitorMethodSchema.default("GET"),
+    interval_minutes: monitorIntervalSchema.default(5),
+    timeout_ms: z.number().int().min(1000).max(30000).default(10000),
+    heartbeat_grace_minutes: z.number().int().min(1).max(1440).default(5),
+    alert_webhook_url: webhookUrlSchema,
+    is_public: z.boolean().default(false)
+  })
+  .superRefine((value, ctx) => {
+    if (value.type === "http" && !value.url) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Monitor URL is required for http monitors.",
+        path: ["url"]
+      });
+    }
+  });
 
 export const updateMonitorSchema = z
   .object({
@@ -79,6 +91,7 @@ export const updateMonitorSchema = z
     method: monitorMethodSchema.optional(),
     interval_minutes: monitorIntervalSchema.optional(),
     timeout_ms: z.number().int().min(1000).max(30000).optional(),
+    heartbeat_grace_minutes: z.number().int().min(1).max(1440).optional(),
     alert_webhook_url: webhookUrlSchema,
     is_public: z.boolean().optional()
   })

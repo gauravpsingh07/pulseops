@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS monitors (
   user_id TEXT NOT NULL,
   name TEXT NOT NULL,
   url TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'http' CHECK (type IN ('http', 'heartbeat')),
+  heartbeat_token TEXT,
+  heartbeat_grace_minutes INTEGER NOT NULL DEFAULT 5,
   method TEXT NOT NULL DEFAULT 'GET' CHECK (method IN ('GET', 'HEAD')),
   interval_minutes INTEGER NOT NULL DEFAULT 5 CHECK (interval_minutes IN (5, 10, 15, 30, 60)),
   status TEXT NOT NULL DEFAULT 'unknown' CHECK (status IN ('unknown', 'operational', 'degraded', 'down')),
@@ -96,3 +99,4 @@ CREATE INDEX IF NOT EXISTS idx_incidents_monitor_id_status ON incidents(monitor_
 CREATE INDEX IF NOT EXISTS idx_alert_logs_monitor_id ON alert_logs(monitor_id);
 CREATE INDEX IF NOT EXISTS idx_rate_limits_identifier_route ON rate_limits(identifier, route);
 CREATE INDEX IF NOT EXISTS idx_daily_stats_monitor_day ON daily_stats(monitor_id, day DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_monitors_heartbeat_token ON monitors(heartbeat_token);

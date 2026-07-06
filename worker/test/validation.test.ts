@@ -65,4 +65,35 @@ describe("monitor validation", () => {
       expect(result.data.alert_webhook_url).toBeUndefined();
     }
   });
+
+  it("allows heartbeat monitors without a URL", () => {
+    const result = createMonitorSchema.safeParse({
+      name: "Nightly backup",
+      type: "heartbeat",
+      heartbeat_grace_minutes: 10
+    });
+
+    expect(result.success).toBe(true);
+
+    if (result.success) {
+      expect(result.data.type).toBe("heartbeat");
+      expect(result.data.heartbeat_grace_minutes).toBe(10);
+    }
+  });
+
+  it("still requires a URL for http monitors", () => {
+    const result = createMonitorSchema.safeParse({ name: "Site", type: "http" });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("bounds the heartbeat grace window", () => {
+    const result = createMonitorSchema.safeParse({
+      name: "Nightly backup",
+      type: "heartbeat",
+      heartbeat_grace_minutes: 0
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

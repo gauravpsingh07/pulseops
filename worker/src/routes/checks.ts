@@ -74,6 +74,14 @@ async function handleRunCheck(request: Request, env: Env, monitorId: string): Pr
     return errorResponse("MONITOR_INACTIVE", "Monitor is inactive.", 400);
   }
 
+  if (monitor.type === "heartbeat") {
+    return errorResponse(
+      "HEARTBEAT_MONITOR",
+      "Heartbeat monitors are checked by pinging their heartbeat URL, not by manual checks.",
+      400
+    );
+  }
+
   const result = await runMonitorCheck(env, monitor);
 
   return successResponse({

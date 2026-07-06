@@ -65,6 +65,26 @@ export function isMonitorDue(monitor: ScheduledMonitor, nowMs: number): boolean 
   return nowMs >= dueAtMs - SCHEDULED_DUE_GRACE_MS;
 }
 
+export function isHeartbeatOverdue(monitor: ScheduledMonitor, nowMs: number): boolean {
+  // A heartbeat monitor that has never been pinged stays pending instead of
+  // alerting immediately after creation.
+  if (!monitor.last_checked_at) {
+    return false;
+  }
+
+  const lastCheckedAtMs = parseSqliteTimestamp(monitor.last_checked_at);
+
+  if (lastCheckedAtMs === 0) {
+    return false;
+  }
+
+  const overdueAtMs =
+    lastCheckedAtMs +
+    (monitor.interval_minutes + monitor.heartbeat_grace_minutes) * 60 * 1000;
+
+  return nowMs >= overdueAtMs;
+}
+
 function getFetchErrorMessage(error: unknown, timeoutMs: number): string {
   if (error instanceof DOMException && error.name === "AbortError") {
     return `Request timed out after ${timeoutMs}ms.`;
@@ -203,8 +223,11 @@ async function updateMonitorAfterCheck(
   return updatedMonitor;
 }
 
-export async function runMonitorCheck(env: Env, monitor: Monitor): Promise<MonitorCheckResult> {
-  const result = await executeFetchCheck(monitor);
+export async function recordCheckResult(
+  env: Env,
+  monitor: Monitor,
+  result: RawCheckResult
+): Promise<MonitorCheckResult> {
   const check = await insertCheck(env, monitor.id, result);
   const updatedMonitor = await updateMonitorAfterCheck(env, monitor, result.status);
 
@@ -226,6 +249,33 @@ export async function runMonitorCheck(env: Env, monitor: Monitor): Promise<Monit
     incident_created: incidentTransition.created,
     incident_resolved: incidentTransition.resolved
   };
+}
+
+export async function recordHeartbeatPing(env: Env, monitor: Monitor): Promise<MonitorCheckResult> {
+  return recordCheckResult(env, monitor, {
+    status: "success",
+    status_code: null,
+    response_time_ms: null,
+    error_message: null
+  });
+}
+
+export async function recordMissedHeartbeat(
+  env: Env,
+  monitor: ScheduledMonitor
+): Promise<MonitorCheckResult> {
+  return recordCheckResult(env, monitor, {
+    status: "failure",
+    status_code: null,
+    response_time_ms: null,
+    error_message: `No heartbeat received for ${monitor.interval_minutes + monitor.heartbeat_grace_minutes} minutes.`
+  });
+}
+
+export async function runMonitorCheck(env: Env, monitor: Monitor): Promise<MonitorCheckResult> {
+  const result = await executeFetchCheck(monitor);
+
+  return recordCheckResult(env, monitor, result);
 }
 
 export async function runScheduledChecks(env: Env): Promise<ScheduledChecksSummary> {
@@ -259,6 +309,25 @@ export async function runScheduledChecks(env: Env): Promise<ScheduledChecksSumma
   const monitors = await listActiveMonitorsForScheduling(env);
 
   for (const monitor of monitors) {
+    if (monitor.type === "heartbeat") {
+      if (!isHeartbeatOverdue(monitor, nowMs)) {
+        summary.skipped += 1;
+        continue;
+      }
+
+      summary.checked += 1;
+
+      try {
+        await recordMissedHeartbeat(env, monitor);
+        summary.failed += 1;
+      } catch (error) {
+        summary.failed += 1;
+        console.error(`Missed-heartbeat handling failed for monitor ${monitor.id}`, error);
+      }
+
+      continue;
+    }
+
     if (!isMonitorDue(monitor, nowMs)) {
       summary.skipped += 1;
       continue;

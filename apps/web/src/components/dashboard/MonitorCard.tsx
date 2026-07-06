@@ -16,7 +16,9 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
           <Link className="text-base font-semibold text-ink-950 hover:text-pulse-600" to={`/monitors/${monitor.id}`}>
             {monitor.name}
           </Link>
-          <p className="mt-1 text-sm text-ink-500">{getHostname(monitor.url)}</p>
+          <p className="mt-1 text-sm text-ink-500">
+            {monitor.type === "heartbeat" ? "heartbeat monitor" : getHostname(monitor.url)}
+          </p>
         </div>
         <Badge tone={getStatusTone(monitor.status)}>{getStatusLabel(monitor.status)}</Badge>
       </div>

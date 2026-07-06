@@ -13,6 +13,7 @@ import { LoadingState } from "../components/ui/LoadingState";
 import type { Incident, Monitor, MonitorCheck, MonitorMetrics, UpdateMonitorPayload } from "../lib/api";
 import {
   ApiError,
+  getHeartbeatPingUrl,
   getMonitor,
   getMonitorMetrics,
   listMonitorChecks,
@@ -155,19 +156,54 @@ export default function MonitorDetailPage() {
             <h1 className="text-2xl font-semibold text-ink-950">{monitor.name}</h1>
             <Badge tone={getStatusTone(monitor.status)}>{getStatusLabel(monitor.status)}</Badge>
           </div>
-          <a
-            className="mt-2 block break-all text-sm font-medium text-ink-500 hover:text-pulse-600"
-            href={monitor.url}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {monitor.url}
-          </a>
+          {monitor.type === "heartbeat" ? (
+            <p className="mt-2 text-sm font-medium text-ink-500">
+              Heartbeat monitor - expects a ping every {monitor.interval_minutes} min (+
+              {monitor.heartbeat_grace_minutes} min grace)
+            </p>
+          ) : (
+            <a
+              className="mt-2 block break-all text-sm font-medium text-ink-500 hover:text-pulse-600"
+              href={monitor.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {monitor.url}
+            </a>
+          )}
         </div>
-        <Button disabled={runningCheck} type="button" onClick={handleRunCheck}>
-          {runningCheck ? "Running Check" : "Run Check"}
-        </Button>
+        {monitor.type !== "heartbeat" ? (
+          <Button disabled={runningCheck} type="button" onClick={handleRunCheck}>
+            {runningCheck ? "Running Check" : "Run Check"}
+          </Button>
+        ) : null}
       </div>
+
+      {monitor.type === "heartbeat" && monitor.heartbeat_token ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-sm font-semibold text-ink-950">Heartbeat ping URL</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Call this URL from your cron job or scheduled task (GET or POST). Keep it secret -
+            anyone with the URL can mark this monitor healthy.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <code className="break-all rounded bg-slate-100 px-2 py-1 text-xs text-ink-950">
+              {getHeartbeatPingUrl(monitor.heartbeat_token)}
+            </code>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                void navigator.clipboard.writeText(
+                  getHeartbeatPingUrl(monitor.heartbeat_token ?? "")
+                );
+              }}
+            >
+              Copy
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {actionError ? <ErrorState title="Action failed" message={actionError} /> : null}
       {actionMessage ? (

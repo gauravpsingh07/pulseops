@@ -21,22 +21,27 @@ function getErrorMessage(error: unknown): string {
 
 export function MonitorForm({ onCreated }: MonitorFormProps) {
   const [name, setName] = useState("");
+  const [type, setType] = useState<"http" | "heartbeat">("http");
   const [url, setUrl] = useState("");
   const [method, setMethod] = useState<CreateMonitorPayload["method"]>("GET");
   const [intervalMinutes, setIntervalMinutes] = useState<CreateMonitorPayload["interval_minutes"]>(5);
   const [timeoutMs, setTimeoutMs] = useState(10000);
+  const [graceMinutes, setGraceMinutes] = useState(5);
   const [alertWebhookUrl, setAlertWebhookUrl] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const isHeartbeat = type === "heartbeat";
 
   function resetForm() {
     setName("");
+    setType("http");
     setUrl("");
     setMethod("GET");
     setIntervalMinutes(5);
     setTimeoutMs(10000);
+    setGraceMinutes(5);
     setAlertWebhookUrl("");
     setIsPublic(false);
   }
@@ -50,10 +55,12 @@ export function MonitorForm({ onCreated }: MonitorFormProps) {
     try {
       await createMonitor({
         name,
-        url,
+        type,
+        url: isHeartbeat ? undefined : url,
         method,
         interval_minutes: intervalMinutes,
         timeout_ms: timeoutMs,
+        heartbeat_grace_minutes: graceMinutes,
         alert_webhook_url: alertWebhookUrl.trim() || undefined,
         is_public: isPublic
       });
@@ -76,28 +83,51 @@ export function MonitorForm({ onCreated }: MonitorFormProps) {
         </div>
       ) : null}
       <Input label="Name" name="name" value={name} onChange={(event) => setName(event.target.value)} required />
-      <Input
-        label="URL"
-        name="url"
-        type="url"
-        value={url}
-        onChange={(event) => setUrl(event.target.value)}
-        required
-      />
+      <label className="block">
+        <span className="mb-2 block text-sm font-medium text-ink-700">Monitor type</span>
+        <select
+          className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink-950 outline-none focus:border-pulse-500 focus:ring-4 focus:ring-pulse-100"
+          value={type}
+          onChange={(event) => setType(event.target.value as "http" | "heartbeat")}
+        >
+          <option value="http">HTTP - PulseOps checks your URL</option>
+          <option value="heartbeat">Heartbeat - your job pings PulseOps</option>
+        </select>
+      </label>
+      {isHeartbeat ? (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+          After creating the monitor you get a secret ping URL. Call it from your cron job or
+          scheduled task; if no ping arrives within the interval plus the grace window, PulseOps
+          records a failure and opens an incident.
+        </p>
+      ) : (
+        <Input
+          label="URL"
+          name="url"
+          type="url"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          required
+        />
+      )}
       <div className="grid gap-4 sm:grid-cols-3">
+        {!isHeartbeat ? (
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-ink-700">Method</span>
+            <select
+              className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink-950 outline-none focus:border-pulse-500 focus:ring-4 focus:ring-pulse-100"
+              value={method}
+              onChange={(event) => setMethod(event.target.value as CreateMonitorPayload["method"])}
+            >
+              <option value="GET">GET</option>
+              <option value="HEAD">HEAD</option>
+            </select>
+          </label>
+        ) : null}
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-ink-700">Method</span>
-          <select
-            className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink-950 outline-none focus:border-pulse-500 focus:ring-4 focus:ring-pulse-100"
-            value={method}
-            onChange={(event) => setMethod(event.target.value as CreateMonitorPayload["method"])}
-          >
-            <option value="GET">GET</option>
-            <option value="HEAD">HEAD</option>
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-ink-700">Interval</span>
+          <span className="mb-2 block text-sm font-medium text-ink-700">
+            {isHeartbeat ? "Expected every" : "Interval"}
+          </span>
           <select
             className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink-950 outline-none focus:border-pulse-500 focus:ring-4 focus:ring-pulse-100"
             value={intervalMinutes}
@@ -112,17 +142,30 @@ export function MonitorForm({ onCreated }: MonitorFormProps) {
             ))}
           </select>
         </label>
-        <Input
-          label="Timeout"
-          name="timeout_ms"
-          type="number"
-          min={1000}
-          max={30000}
-          step={1000}
-          value={timeoutMs}
-          onChange={(event) => setTimeoutMs(Number(event.target.value))}
-          required
-        />
+        {isHeartbeat ? (
+          <Input
+            label="Grace (min)"
+            name="heartbeat_grace_minutes"
+            type="number"
+            min={1}
+            max={1440}
+            value={graceMinutes}
+            onChange={(event) => setGraceMinutes(Number(event.target.value))}
+            required
+          />
+        ) : (
+          <Input
+            label="Timeout"
+            name="timeout_ms"
+            type="number"
+            min={1000}
+            max={30000}
+            step={1000}
+            value={timeoutMs}
+            onChange={(event) => setTimeoutMs(Number(event.target.value))}
+            required
+          />
+        )}
       </div>
       <Input
         label="Discord webhook"

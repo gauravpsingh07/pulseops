@@ -7,6 +7,9 @@ export type MonitorRow = {
   user_id: string;
   name: string;
   url: string;
+  type: "http" | "heartbeat";
+  heartbeat_token: string | null;
+  heartbeat_grace_minutes: number;
   method: "GET" | "HEAD";
   interval_minutes: 5 | 10 | 15 | 30 | 60;
   status: "unknown" | "operational" | "degraded" | "down";
@@ -118,6 +121,21 @@ export async function getMonitorByIdForUser(
      WHERE id = ? AND user_id = ?`
   )
     .bind(monitorId, userId)
+    .first<MonitorRow>();
+
+  return row ? toMonitor(row) : null;
+}
+
+export async function getActiveHeartbeatMonitorByToken(
+  env: Env,
+  token: string
+): Promise<Monitor | null> {
+  const row = await env.DB.prepare(
+    `SELECT *
+     FROM monitors
+     WHERE heartbeat_token = ? AND type = 'heartbeat' AND is_active = 1`
+  )
+    .bind(token)
     .first<MonitorRow>();
 
   return row ? toMonitor(row) : null;
@@ -347,6 +365,10 @@ export async function createMonitor(
 ): Promise<Monitor> {
   const monitorId = createId("mon");
   const publicSlug = input.is_public ? await createUniquePublicSlug(env, input.name) : null;
+  const isHeartbeat = input.type === "heartbeat";
+  const heartbeatToken = isHeartbeat
+    ? `hb_${crypto.randomUUID().replaceAll("-", "")}`
+    : null;
 
   await env.DB.prepare(
     `INSERT INTO monitors (
@@ -354,6 +376,9 @@ export async function createMonitor(
        user_id,
        name,
        url,
+       type,
+       heartbeat_token,
+       heartbeat_grace_minutes,
        method,
        interval_minutes,
        timeout_ms,
@@ -361,13 +386,16 @@ export async function createMonitor(
        public_slug,
        alert_webhook_url
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       monitorId,
       userId,
       input.name,
-      input.url,
+      isHeartbeat ? "" : (input.url ?? ""),
+      input.type,
+      heartbeatToken,
+      input.heartbeat_grace_minutes,
       input.method,
       input.interval_minutes,
       input.timeout_ms,
@@ -417,6 +445,10 @@ export async function updateMonitor(
 
   if (input.timeout_ms !== undefined) {
     setColumn("timeout_ms", input.timeout_ms);
+  }
+
+  if (input.heartbeat_grace_minutes !== undefined) {
+    setColumn("heartbeat_grace_minutes", input.heartbeat_grace_minutes);
   }
 
   if (input.alert_webhook_url !== undefined) {

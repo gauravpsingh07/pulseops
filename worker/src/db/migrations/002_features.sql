@@ -42,3 +42,11 @@ GROUP BY monitor_id, date(checked_at);
 -- NOTE: ALTER TABLE has no IF NOT EXISTS in SQLite, so run this migration once.
 ALTER TABLE users ADD COLUMN board_slug TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_board_slug ON users(board_slug);
+
+-- Heartbeat (dead-man-switch) monitors: external jobs ping a secret URL;
+-- a missed ping past interval + grace records a failure and opens incidents
+-- through the normal 3-failure pipeline.
+ALTER TABLE monitors ADD COLUMN type TEXT NOT NULL DEFAULT 'http';
+ALTER TABLE monitors ADD COLUMN heartbeat_token TEXT;
+ALTER TABLE monitors ADD COLUMN heartbeat_grace_minutes INTEGER NOT NULL DEFAULT 5;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_monitors_heartbeat_token ON monitors(heartbeat_token);

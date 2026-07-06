@@ -32,6 +32,9 @@ export type Monitor = {
   user_id: string;
   name: string;
   url: string;
+  type: "http" | "heartbeat";
+  heartbeat_token: string | null;
+  heartbeat_grace_minutes: number;
   method: "GET" | "HEAD";
   interval_minutes: 5 | 10 | 15 | 30 | 60;
   status: "unknown" | "operational" | "degraded" | "down";
@@ -48,10 +51,12 @@ export type Monitor = {
 
 export type CreateMonitorPayload = {
   name: string;
-  url: string;
+  type?: "http" | "heartbeat";
+  url?: string;
   method?: "GET" | "HEAD";
   interval_minutes?: 5 | 10 | 15 | 30 | 60;
   timeout_ms?: number;
+  heartbeat_grace_minutes?: number;
   alert_webhook_url?: string;
   is_public?: boolean;
 };
@@ -277,6 +282,12 @@ export async function ensureBoardSlug(): Promise<string> {
 
 export async function getPublicBoard(slug: string): Promise<PublicBoard> {
   return apiRequest<PublicBoard>(`/api/board/${slug}`);
+}
+
+export function getHeartbeatPingUrl(token: string): string {
+  const base = apiBaseUrl || window.location.origin;
+
+  return `${base}/api/ping/${token}`;
 }
 
 export async function getPublicStatusMetrics(slug: string): Promise<MonitorMetrics> {

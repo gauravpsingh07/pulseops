@@ -54,8 +54,11 @@ PulseOps provides a lightweight monitoring system on a free-tier-friendly server
 
 - Email/password authentication with hashed passwords and JWT sessions.
 - Monitor CRUD for website and API endpoints.
+- Heartbeat (dead-man-switch) monitors: cron jobs ping a secret URL, and a missed ping past the interval + grace window records a failure and opens incidents through the normal pipeline.
 - Manual uptime checks from the dashboard.
 - Scheduled checks through Cloudflare Cron Triggers.
+- 90-day uptime history bars backed by per-day rollups (`daily_stats`), shown on monitor detail and public status pages.
+- Combined status board: one public page per user showing all public monitors with an overall system banner.
 - Response-time tracking and metrics cards.
 - Recharts response-time charts.
 - Incident automation with a 3-failure outage threshold.
@@ -116,14 +119,23 @@ The frontend uses a Vite dev proxy for local `/api` calls. In production, set `V
 
 Main D1 tables:
 
-- `users`: account records and password hashes.
-- `monitors`: endpoint configuration, current status, counters, public slug, and optional alert webhook.
+- `users`: account records, password hashes, and the public status-board slug.
+- `monitors`: endpoint configuration, monitor type (`http` or `heartbeat`), heartbeat token/grace, current status, counters, public slug, and optional alert webhook.
 - `checks`: individual check results with status code, response time, error, and timestamp.
+- `daily_stats`: per-monitor per-day rollups powering the 90-day uptime bars.
 - `incidents`: open and resolved outage records.
 - `alert_logs`: Discord alert delivery attempts, skipped alerts, and failures.
 - `rate_limits`: D1-backed rate-limit counters.
 
 Schema source: [worker/src/db/schema.sql](worker/src/db/schema.sql)
+
+Existing deployments upgrade with the incremental migration (creates `daily_stats`, backfills ~30 days of rollups from retained checks, and adds the board and heartbeat columns):
+
+```powershell
+corepack pnpm --filter worker exec wrangler d1 execute pulseops-db --remote --file=src/db/migrations/002_features.sql
+```
+
+Run it once; the `ALTER TABLE` statements are not re-runnable.
 
 ## 9. API Documentation
 
@@ -149,6 +161,9 @@ Route groups:
 - `GET /api/status/:slug/metrics`
 - `GET /api/status/:slug/incidents`
 - `GET /api/status/:slug/badge.svg`
+- `GET /api/board` and `POST /api/board` (authenticated board slug management)
+- `GET /api/board/:slug` (public combined status board)
+- `GET|POST /api/ping/:token` (heartbeat pings)
 - `POST /api/cron/check-monitors`
 
 ## 10. Monitoring Logic
@@ -166,7 +181,8 @@ Summary:
 - The first down transition opens one incident.
 - Duplicate open incidents are not created.
 - Recovery resolves the open incident and can send a Discord resolution alert.
-- Scheduled check retention deletes checks older than 30 days and rate-limit counters older than 24 hours.
+- Heartbeat monitors invert the flow: pings record successful checks, and the scheduler records a failed check when a ping is overdue (interval + grace). A never-pinged heartbeat stays pending instead of alerting.
+- Scheduled check retention deletes checks older than 30 days, rate-limit counters older than 24 hours, and daily rollups older than 90 days.
 
 ## 11. Local Development
 

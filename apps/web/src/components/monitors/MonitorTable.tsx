@@ -37,7 +37,9 @@ export function MonitorTable({ monitors }: MonitorTableProps) {
                   <Link className="font-semibold text-ink-950 hover:text-pulse-600" to={`/monitors/${monitor.id}`}>
                     {monitor.name}
                   </Link>
-                  <p className="mt-1 text-xs text-ink-500">{getHostname(monitor.url)}</p>
+                  <p className="mt-1 text-xs text-ink-500">
+                    {monitor.type === "heartbeat" ? "heartbeat monitor" : getHostname(monitor.url)}
+                  </p>
                 </td>
                 <td className="px-4 py-4">
                   <Badge tone={getStatusTone(monitor.status)}>{getStatusLabel(monitor.status)}</Badge>
@@ -58,7 +60,9 @@ export function MonitorTable({ monitors }: MonitorTableProps) {
                 <Link className="font-semibold text-ink-950" to={`/monitors/${monitor.id}`}>
                   {monitor.name}
                 </Link>
-                <p className="mt-1 text-xs text-ink-500">{getHostname(monitor.url)}</p>
+                <p className="mt-1 text-xs text-ink-500">
+                  {monitor.type === "heartbeat" ? "heartbeat monitor" : getHostname(monitor.url)}
+                </p>
               </div>
               <Badge tone={getStatusTone(monitor.status)}>{getStatusLabel(monitor.status)}</Badge>
             </div>

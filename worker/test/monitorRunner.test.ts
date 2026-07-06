@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isMonitorDue, runMonitorCheck } from "../src/services/monitorRunner";
+import {
+  isHeartbeatOverdue,
+  isMonitorDue,
+  recordHeartbeatPing,
+  recordMissedHeartbeat,
+  runMonitorCheck
+} from "../src/services/monitorRunner";
 import type { ScheduledMonitor } from "../src/db/queries";
 import { createIncident, createMonitor, createTestEnv, readMonitor } from "./fakeD1";
 
@@ -128,5 +134,62 @@ describe("monitorRunner", () => {
     expect(result.incident_resolved).toBe(true);
     expect(result.incident?.status).toBe("resolved");
     expect(env.tables.incidents[0]?.status).toBe("resolved");
+  });
+
+  it("keeps a never-pinged heartbeat pending instead of overdue", () => {
+    const monitor = createScheduledMonitor({
+      type: "heartbeat",
+      last_checked_at: null
+    });
+
+    expect(isHeartbeatOverdue(monitor, Date.now())).toBe(false);
+  });
+
+  it("marks a heartbeat overdue after interval plus grace", () => {
+    const monitor = createScheduledMonitor({
+      type: "heartbeat",
+      interval_minutes: 5,
+      heartbeat_grace_minutes: 5,
+      last_checked_at: "2026-05-14 21:00:00"
+    });
+
+    expect(isHeartbeatOverdue(monitor, Date.parse("2026-05-14T21:09:00Z"))).toBe(false);
+    expect(isHeartbeatOverdue(monitor, Date.parse("2026-05-14T21:10:00Z"))).toBe(true);
+  });
+
+  it("records a missed heartbeat as a failed check without fetching", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("fetch should not be called for heartbeat monitors");
+      })
+    );
+    const monitor = createMonitor({ type: "heartbeat", failure_count: 2, status: "degraded" });
+    const env = createTestEnv({ monitors: [monitor] });
+
+    const result = await recordMissedHeartbeat(env, {
+      ...readMonitor(env),
+      last_checked_at: "2026-05-14 21:00:00"
+    });
+
+    expect(result.check.status).toBe("failure");
+    expect(result.check.error_message).toContain("No heartbeat received");
+    expect(result.monitor.status).toBe("down");
+    expect(result.incident_created).toBe(true);
+  });
+
+  it("recovers a down heartbeat monitor when a ping arrives", async () => {
+    const monitor = createMonitor({ type: "heartbeat", failure_count: 3, status: "down" });
+    const incident = createIncident({ monitor_id: monitor.id, status: "open" });
+    const env = createTestEnv({
+      incidents: [incident],
+      monitors: [monitor]
+    });
+
+    const result = await recordHeartbeatPing(env, readMonitor(env));
+
+    expect(result.check.status).toBe("success");
+    expect(result.monitor.status).toBe("operational");
+    expect(result.incident_resolved).toBe(true);
   });
 });

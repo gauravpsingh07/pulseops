@@ -30,6 +30,7 @@ export function MonitorSettingsForm({ monitor, publicStatusPath, onSave }: Monit
     monitor.interval_minutes
   );
   const [timeoutMs, setTimeoutMs] = useState(monitor.timeout_ms);
+  const [graceMinutes, setGraceMinutes] = useState(monitor.heartbeat_grace_minutes);
   const [alertWebhookUrl, setAlertWebhookUrl] = useState(monitor.alert_webhook_url ?? "");
   const [isPublic, setIsPublic] = useState(monitor.is_public);
   const [saving, setSaving] = useState(false);
@@ -42,10 +43,12 @@ export function MonitorSettingsForm({ monitor, publicStatusPath, onSave }: Monit
     setMethod(monitor.method);
     setIntervalMinutes(monitor.interval_minutes);
     setTimeoutMs(monitor.timeout_ms);
+    setGraceMinutes(monitor.heartbeat_grace_minutes);
     setAlertWebhookUrl(monitor.alert_webhook_url ?? "");
     setIsPublic(monitor.is_public);
   }, [
     monitor.alert_webhook_url,
+    monitor.heartbeat_grace_minutes,
     monitor.id,
     monitor.interval_minutes,
     monitor.is_public,
@@ -55,20 +58,29 @@ export function MonitorSettingsForm({ monitor, publicStatusPath, onSave }: Monit
     monitor.url
   ]);
 
+  const isHeartbeat = monitor.type === "heartbeat";
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setSuccess(null);
     setError(null);
 
-    const payload: UpdateMonitorPayload = {
-      name: name.trim(),
-      url: url.trim(),
-      method,
-      interval_minutes: intervalMinutes,
-      timeout_ms: timeoutMs,
-      is_public: isPublic
-    };
+    const payload: UpdateMonitorPayload = isHeartbeat
+      ? {
+          name: name.trim(),
+          interval_minutes: intervalMinutes,
+          heartbeat_grace_minutes: graceMinutes,
+          is_public: isPublic
+        }
+      : {
+          name: name.trim(),
+          url: url.trim(),
+          method,
+          interval_minutes: intervalMinutes,
+          timeout_ms: timeoutMs,
+          is_public: isPublic
+        };
 
     // Send null when the field is emptied so the API clears a saved webhook.
     const trimmedWebhookUrl = alertWebhookUrl.trim();
@@ -96,30 +108,36 @@ export function MonitorSettingsForm({ monitor, publicStatusPath, onSave }: Monit
       ) : null}
 
       <Input label="Name" name="name" value={name} onChange={(event) => setName(event.target.value)} required />
-      <Input
-        label="URL"
-        name="url"
-        type="url"
-        value={url}
-        onChange={(event) => setUrl(event.target.value)}
-        required
-      />
+      {!isHeartbeat ? (
+        <Input
+          label="URL"
+          name="url"
+          type="url"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          required
+        />
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-ink-700">Method</span>
-          <select
-            className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink-950 outline-none focus:border-pulse-500 focus:ring-4 focus:ring-pulse-100"
-            value={method}
-            onChange={(event) => setMethod(event.target.value as Monitor["method"])}
-          >
-            <option value="GET">GET</option>
-            <option value="HEAD">HEAD</option>
-          </select>
-        </label>
+        {!isHeartbeat ? (
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-ink-700">Method</span>
+            <select
+              className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink-950 outline-none focus:border-pulse-500 focus:ring-4 focus:ring-pulse-100"
+              value={method}
+              onChange={(event) => setMethod(event.target.value as Monitor["method"])}
+            >
+              <option value="GET">GET</option>
+              <option value="HEAD">HEAD</option>
+            </select>
+          </label>
+        ) : null}
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-ink-700">Interval</span>
+          <span className="mb-2 block text-sm font-medium text-ink-700">
+            {isHeartbeat ? "Expected every" : "Interval"}
+          </span>
           <select
             className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink-950 outline-none focus:border-pulse-500 focus:ring-4 focus:ring-pulse-100"
             value={intervalMinutes}
@@ -133,17 +151,30 @@ export function MonitorSettingsForm({ monitor, publicStatusPath, onSave }: Monit
           </select>
         </label>
 
-        <Input
-          label="Timeout"
-          name="timeout_ms"
-          type="number"
-          min={1000}
-          max={30000}
-          step={1000}
-          value={timeoutMs}
-          onChange={(event) => setTimeoutMs(Number(event.target.value))}
-          required
-        />
+        {isHeartbeat ? (
+          <Input
+            label="Grace (min)"
+            name="heartbeat_grace_minutes"
+            type="number"
+            min={1}
+            max={1440}
+            value={graceMinutes}
+            onChange={(event) => setGraceMinutes(Number(event.target.value))}
+            required
+          />
+        ) : (
+          <Input
+            label="Timeout"
+            name="timeout_ms"
+            type="number"
+            min={1000}
+            max={30000}
+            step={1000}
+            value={timeoutMs}
+            onChange={(event) => setTimeoutMs(Number(event.target.value))}
+            required
+          />
+        )}
       </div>
 
       <Input

@@ -4,6 +4,7 @@ import { handleCheckRoute } from "./routes/checks";
 import { handleCronRoute } from "./routes/cron";
 import { handleIncidentRoute } from "./routes/incidents";
 import { handleMonitorRoute } from "./routes/monitors";
+import { handlePingRoute } from "./routes/ping";
 import { handleStatusRoute } from "./routes/status";
 import { runScheduledChecks } from "./services/monitorRunner";
 import type { Env } from "./types/env";
@@ -57,6 +58,12 @@ async function fetchHandler(request: Request, env: Env): Promise<Response> {
 
     if (boardResponse) {
       return boardResponse;
+    }
+
+    const pingResponse = await handlePingRoute(request, env, url.pathname);
+
+    if (pingResponse) {
+      return pingResponse;
     }
 
     const cronResponse = await handleCronRoute(request, env, url.pathname);
