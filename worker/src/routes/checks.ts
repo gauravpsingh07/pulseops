@@ -1,6 +1,7 @@
 import { getMonitorByIdForUser, getRecentChecksByMonitor } from "../db/queries";
 import { authenticateRequest } from "../middleware/authMiddleware";
 import { checkRateLimit } from "../middleware/rateLimitMiddleware";
+import { getDailyUptime } from "../services/dailyStatsService";
 import { getMonitorMetrics, parseMetricsWindow } from "../services/metricsService";
 import { runMonitorCheck } from "../services/monitorRunner";
 import type { Env } from "../types/env";
@@ -135,9 +136,12 @@ async function handleMetrics(
   }
 
   const window = parseMetricsWindow(searchParams.get("window"));
-  const metrics = await getMonitorMetrics(env, monitor, window);
+  const [metrics, dailyStats] = await Promise.all([
+    getMonitorMetrics(env, monitor, window),
+    getDailyUptime(env, monitor.id)
+  ]);
 
-  return successResponse(metrics);
+  return successResponse({ ...metrics, daily_stats: dailyStats });
 }
 
 export async function handleCheckRoute(

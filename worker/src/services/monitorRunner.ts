@@ -9,6 +9,7 @@ import {
 import type { Env } from "../types/env";
 import { createId } from "../utils/ids";
 import { elapsedMs, nowTimestampMs } from "../utils/time";
+import { deleteDailyStatsOlderThan, toDayUtc, upsertDailyStats } from "./dailyStatsService";
 import {
   handleFailedCheckIncident,
   handleSuccessfulCheckRecovery
@@ -38,6 +39,7 @@ type RawCheckResult = {
 };
 
 const CHECK_RETENTION_DAYS = 30;
+const DAILY_STATS_RETENTION_DAYS = 90;
 const RATE_LIMIT_RETENTION_HOURS = 24;
 const SCHEDULED_DUE_GRACE_MS = 60 * 1000;
 
@@ -205,6 +207,13 @@ export async function runMonitorCheck(env: Env, monitor: Monitor): Promise<Monit
   const result = await executeFetchCheck(monitor);
   const check = await insertCheck(env, monitor.id, result);
   const updatedMonitor = await updateMonitorAfterCheck(env, monitor, result.status);
+
+  try {
+    await upsertDailyStats(env, monitor.id, toDayUtc(check.checked_at));
+  } catch (error) {
+    console.error(`Daily stats update failed for monitor ${monitor.id}`, error);
+  }
+
   const incidentTransition =
     result.status === "success"
       ? await handleSuccessfulCheckRecovery(env, updatedMonitor)
@@ -239,6 +248,12 @@ export async function runScheduledChecks(env: Env): Promise<ScheduledChecksSumma
     summary.rateLimitRowsDeleted = await deleteRateLimitsOlderThan(env, RATE_LIMIT_RETENTION_HOURS);
   } catch (error) {
     console.error("Scheduled rate-limit cleanup failed", error);
+  }
+
+  try {
+    await deleteDailyStatsOlderThan(env, DAILY_STATS_RETENTION_DAYS);
+  } catch (error) {
+    console.error("Scheduled daily-stats cleanup failed", error);
   }
 
   const monitors = await listActiveMonitorsForScheduling(env);

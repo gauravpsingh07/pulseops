@@ -49,7 +49,7 @@ function getAverage(values: number[]): number | null {
   return roundMetric(total / values.length);
 }
 
-function getP95(values: number[]): number | null {
+export function getP95(values: number[]): number | null {
   if (values.length === 0) {
     return null;
   }

@@ -7,6 +7,7 @@ import {
   type IncidentRow,
   type Monitor
 } from "../db/queries";
+import { getDailyUptime } from "../services/dailyStatsService";
 import { getMonitorMetrics, parseMetricsWindow } from "../services/metricsService";
 import type { Env } from "../types/env";
 import { buildStatusBadgeSvg } from "../utils/badge";
@@ -78,11 +79,12 @@ async function handlePublicStatus(env: Env, slug: string): Promise<Response> {
     return errorResponse("NOT_FOUND", "Status page not found.", 404);
   }
 
-  const [metrics, recentChecks, activeIncident, incidents] = await Promise.all([
+  const [metrics, recentChecks, activeIncident, incidents, dailyStats] = await Promise.all([
     getMonitorMetrics(env, monitor, "24h"),
     getRecentChecksByMonitor(env, monitor.id, 10),
     getOpenIncidentByMonitor(env, monitor.id),
-    listIncidentsByMonitor(env, monitor.id)
+    listIncidentsByMonitor(env, monitor.id),
+    getDailyUptime(env, monitor.id)
   ]);
   const resolvedIncidents = incidents.filter((incident) => incident.status === "resolved");
   const latestCheck = recentChecks[0] ?? null;
@@ -96,6 +98,7 @@ async function handlePublicStatus(env: Env, slug: string): Promise<Response> {
     uptime_percentage: metrics.uptime_percentage,
     average_response_time_ms: metrics.average_response_time_ms,
     last_checked_at: latestCheck?.checked_at ?? null,
+    daily_stats: dailyStats,
     recent_checks: recentChecks.map(toPublicCheck),
     active_incident: activeIncident ? toPublicIncident(activeIncident) : null,
     resolved_incidents: resolvedIncidents.map(toPublicIncident)

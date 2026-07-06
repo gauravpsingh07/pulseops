@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ResponseTimeChart } from "../components/dashboard/ResponseTimeChart";
+import { UptimeBars } from "../components/monitors/UptimeBars";
 import { PublicIncidentHistory } from "../components/status/PublicIncidentHistory";
 import { PublicStatusHeader } from "../components/status/PublicStatusHeader";
 import { PublicStatusMetrics } from "../components/status/PublicStatusMetrics";
@@ -98,6 +99,13 @@ export default function PublicStatusPage() {
       <PublicStatusHeader activeIncident={activeIncident} status={status} />
 
       <PublicStatusMetrics metrics={metrics} status={status} />
+
+      <Card>
+        <h2 className="text-lg font-semibold text-ink-950">Uptime History</h2>
+        <div className="mt-5">
+          <UptimeBars stats={status.daily_stats} />
+        </div>
+      </Card>
 
       <Card>
         <h2 className="text-lg font-semibold text-ink-950">Response Time</h2>

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ResponseTimeChart } from "../components/dashboard/ResponseTimeChart";
 import { IncidentList } from "../components/incidents/IncidentList";
 import { CheckHistoryTable } from "../components/monitors/CheckHistoryTable";
+import { UptimeBars } from "../components/monitors/UptimeBars";
 import { MonitorSettingsForm } from "../components/monitors/MonitorSettingsForm";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -186,6 +187,13 @@ export default function MonitorDetailPage() {
             <MetricCard label="P95 Response" value={formatMilliseconds(metrics.p95_response_time_ms)} />
             <MetricCard label="Total Checks" value={metrics.total_checks} />
           </div>
+
+          <Card>
+            <h2 className="text-lg font-semibold text-ink-950">Uptime History</h2>
+            <div className="mt-5">
+              <UptimeBars stats={metrics.daily_stats} />
+            </div>
+          </Card>
 
           <Card>
             <h2 className="text-lg font-semibold text-ink-950">Response Time</h2>

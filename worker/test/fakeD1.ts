@@ -8,6 +8,7 @@ type D1Result<T> = {
 type FakeTables = {
   alertLogs: Array<Record<string, unknown>>;
   checks: CheckRow[];
+  dailyStats: Array<Record<string, unknown>>;
   incidents: IncidentRow[];
   monitors: Monitor[];
 };
@@ -58,6 +59,32 @@ class FakePreparedStatement implements PreparedStatement {
   async all<T>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
 
+    if (sql.includes("select response_time_ms from checks")) {
+      const [monitorId, day] = this.values;
+
+      return {
+        results: this.tables.checks
+          .filter(
+            (check) =>
+              check.monitor_id === monitorId &&
+              check.checked_at.slice(0, 10) === day &&
+              check.status === "success" &&
+              check.response_time_ms !== null
+          )
+          .map((check) => ({ response_time_ms: check.response_time_ms })) as T[]
+      };
+    }
+
+    if (sql.includes("from daily_stats")) {
+      const [monitorId] = this.values;
+
+      return {
+        results: this.tables.dailyStats.filter(
+          (row) => row.monitor_id === monitorId
+        ) as T[]
+      };
+    }
+
     if (sql.includes("from checks")) {
       const monitorId = this.values[0];
 
@@ -73,6 +100,26 @@ class FakePreparedStatement implements PreparedStatement {
 
   async first<T>(): Promise<T | null> {
     const sql = normalizeSql(this.sql);
+
+    if (sql.includes("count(*) as total_checks") && sql.includes("from checks")) {
+      const [monitorId, day] = this.values;
+      const dayChecks = this.tables.checks.filter(
+        (check) => check.monitor_id === monitorId && check.checked_at.slice(0, 10) === day
+      );
+      const successful = dayChecks.filter((check) => check.status === "success");
+      const responseTimes = successful
+        .map((check) => check.response_time_ms)
+        .filter((value): value is number => value !== null);
+
+      return {
+        total_checks: dayChecks.length,
+        successful_checks: successful.length,
+        avg_response_time_ms:
+          responseTimes.length === 0
+            ? null
+            : responseTimes.reduce((sum, value) => sum + value, 0) / responseTimes.length
+      } as T;
+    }
 
     if (sql.includes("from monitors") && sql.includes("where id = ? and user_id = ?")) {
       const [monitorId, userId] = this.values;
@@ -144,6 +191,31 @@ class FakePreparedStatement implements PreparedStatement {
         created_at: now(),
         updated_at: now()
       });
+
+      return { meta: { changes: 1 } };
+    }
+
+    if (sql.startsWith("insert into daily_stats")) {
+      const [id, monitorId, day, total, successful, failed, avg, p95] = this.values;
+      const existing = this.tables.dailyStats.find(
+        (row) => row.monitor_id === monitorId && row.day === day
+      );
+      const next = {
+        id: existing?.id ?? id,
+        monitor_id: monitorId,
+        day,
+        total_checks: total,
+        successful_checks: successful,
+        failed_checks: failed,
+        avg_response_time_ms: avg,
+        p95_response_time_ms: p95
+      };
+
+      if (existing) {
+        Object.assign(existing, next);
+      } else {
+        this.tables.dailyStats.push(next);
+      }
 
       return { meta: { changes: 1 } };
     }
@@ -258,6 +330,7 @@ export function createTestEnv(seed: Partial<FakeTables> = {}): Env & { tables: F
   const tables: FakeTables = {
     alertLogs: seed.alertLogs ?? [],
     checks: seed.checks ?? [],
+    dailyStats: seed.dailyStats ?? [],
     incidents: seed.incidents ?? [],
     monitors: seed.monitors ?? [createMonitor()]
   };

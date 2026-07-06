@@ -92,6 +92,16 @@ export type ResponseTimePoint = {
 
 export type PublicCheck = ResponseTimePoint;
 
+export type DailyStat = {
+  day: string;
+  total_checks: number;
+  successful_checks: number;
+  failed_checks: number;
+  avg_response_time_ms: number | null;
+  p95_response_time_ms: number | null;
+  uptime_percentage: number | null;
+};
+
 export type MonitorMetrics = {
   uptime_percentage: number | null;
   average_response_time_ms: number | null;
@@ -101,6 +111,7 @@ export type MonitorMetrics = {
   failed_checks: number;
   latest_status: Monitor["status"];
   response_time_series: ResponseTimePoint[];
+  daily_stats?: DailyStat[];
 };
 
 export type RunMonitorCheckResult = {
@@ -123,6 +134,7 @@ export type PublicStatus = {
   uptime_percentage: number | null;
   average_response_time_ms: number | null;
   last_checked_at: string | null;
+  daily_stats?: DailyStat[];
   recent_checks: PublicCheck[];
   active_incident: PublicIncident | null;
   resolved_incidents: PublicIncident[];
