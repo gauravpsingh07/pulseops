@@ -62,6 +62,7 @@ PulseOps provides a lightweight monitoring system on a free-tier-friendly server
 - Incident deduplication and automatic recovery resolution.
 - Discord webhook alerts and alert log persistence.
 - Public status pages for selected monitors.
+- Embeddable live SVG status badges (`/api/status/:slug/badge.svg`) for READMEs and docs.
 - D1-backed rate limiting for auth, monitor creation, manual checks, and cron fallback.
 - CORS, security headers, Zod validation, and clean error responses.
 - GitHub Actions CI for install, lint, typecheck, tests, and build.
@@ -147,6 +148,7 @@ Route groups:
 - `GET /api/status/:slug`
 - `GET /api/status/:slug/metrics`
 - `GET /api/status/:slug/incidents`
+- `GET /api/status/:slug/badge.svg`
 - `POST /api/cron/check-monitors`
 
 ## 10. Monitoring Logic

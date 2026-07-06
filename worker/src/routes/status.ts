@@ -9,11 +9,13 @@ import {
 } from "../db/queries";
 import { getMonitorMetrics, parseMetricsWindow } from "../services/metricsService";
 import type { Env } from "../types/env";
+import { buildStatusBadgeSvg } from "../utils/badge";
 import { errorResponse, successResponse } from "../utils/response";
 
 const publicStatusPattern = /^\/api\/status\/([^/]+)$/;
 const publicIncidentsPattern = /^\/api\/status\/([^/]+)\/incidents$/;
 const publicMetricsPattern = /^\/api\/status\/([^/]+)\/metrics$/;
+const publicBadgePattern = /^\/api\/status\/([^/]+)\/badge\.svg$/;
 
 type PublicIncident = {
   id: string;
@@ -131,6 +133,29 @@ async function handlePublicMetrics(
   return successResponse(metrics);
 }
 
+async function handlePublicBadge(env: Env, slug: string): Promise<Response> {
+  const monitor = await getVisibleMonitor(env, slug);
+
+  if (!monitor) {
+    return errorResponse("NOT_FOUND", "Status page not found.", 404);
+  }
+
+  const metrics = await getMonitorMetrics(env, monitor, "24h");
+  const svg = buildStatusBadgeSvg({
+    name: monitor.name,
+    status: monitor.status,
+    uptimePercentage: metrics.uptime_percentage
+  });
+
+  return new Response(svg, {
+    status: 200,
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=60"
+    }
+  });
+}
+
 export async function handleStatusRoute(
   request: Request,
   env: Env,
@@ -165,6 +190,16 @@ export async function handleStatusRoute(
     }
 
     return handlePublicMetrics(env, metricsSlug, searchParams);
+  }
+
+  const badgeSlug = getSlug(publicBadgePattern, pathname);
+
+  if (badgeSlug) {
+    if (request.method !== "GET") {
+      return errorResponse("METHOD_NOT_ALLOWED", "Method not allowed.", 405);
+    }
+
+    return handlePublicBadge(env, badgeSlug);
   }
 
   return null;
